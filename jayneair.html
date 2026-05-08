@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jayne Air</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a0e1a;
+    --navy-mid: #111827;
+    --navy-light: #1a2235;
+    --navy-card: #141c2e;
+    --pink: #ff2d78;
+    --pink-bright: #ff4d8f;
+    --pink-dim: #cc2461;
+    --pink-glow: rgba(255,45,120,0.2);
+    --pink-glow-strong: rgba(255,45,120,0.4);
+    --text: #e8eaf6;
+    --text-dim: #8892b0;
+    --border: rgba(255,45,120,0.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.07) 2px,
+      rgba(0,0,0,0.07) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Ambient glow */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, rgba(255,45,120,0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,14,26,0.9);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    letter-spacing: 0.08em;
+    color: var(--pink);
+    text-shadow: 0 0 20px var(--pink-glow-strong), 0 0 40px var(--pink-glow);
+    line-height: 1;
+  }
+  .logo span { color: var(--text); }
+
+  .signal-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 20px;
+  }
+  .signal-bars .bar {
+    width: 5px;
+    background: var(--pink);
+    border-radius: 2px;
+    animation: signal-pulse 1.4s ease-in-out infinite;
+  }
+  .signal-bars .bar:nth-child(1) { height: 6px; animation-delay: 0s; }
+  .signal-bars .bar:nth-child(2) { height: 10px; animation-delay: 0.1s; }
+  .signal-bars .bar:nth-child(3) { height: 14px; animation-delay: 0.2s; }
+  .signal-bars .bar:nth-child(4) { height: 18px; animation-delay: 0.3s; }
+  .signal-bars .bar:nth-child(5) { height: 12px; animation-delay: 0.4s; }
+
+  @keyframes signal-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  nav {
+    display: flex;
+    gap: 4px;
+  }
+  .nav-btn {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    padding: 7px 16px;
+    cursor: pointer;
+    border-radius: 3px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .nav-btn:hover { color: var(--pink); border-color: var(--border); }
+  .nav-btn.active {
+    color: var(--pink);
+    border-color: var(--pink);
+    background: var(--pink-glow);
+    text-shadow: 0 0 8px var(--pink-glow-strong);
+  }
+
+  /* ===== MAIN LAYOUT ===== */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 180px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ===== NOW PLAYING BAR ===== */
+  #now-playing-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(180deg, rgba(10,14,26,0.95) 0%, var(--navy) 100%);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    padding: 16px 32px 20px;
+    z-index: 200;
+    box-shadow: 0 -20px 60px rgba(255,45,120,0.08);
+  }
+
+  .np-track-info {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .np-show {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    color: var(--pink);
+    text-transform: uppercase;
+  }
+  .np-episode {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 500px;
+    margin: 2px auto 0;
+  }
+
+  .np-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .ctrl-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.1em;
+    font-size: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.2s;
+    padding: 6px 8px;
+  }
+  .ctrl-btn:hover { color: var(--pink); }
+  .ctrl-btn svg { width: 20px; height: 20px; }
+
+  #play-pause-btn {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--pink);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 0 20px var(--pink-glow-strong), 0 0 40px var(--pink-glow);
+    flex-shrink: 0;
+  }
+  #play-pause-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 30px var(--pink-glow-strong), 0 0 60px var(--pink-glow);
+  }
+  #play-pause-btn:active { transform: scale(0.96); }
+  #play-pause-btn svg { width: 22px; height: 22px; fill: white; }
+
+  .np-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .time-label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    overflow: visible;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--pink-dim), var(--pink-bright));
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.25s linear;
+    pointer-events: none;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: -4px; top: 50%;
+    transform: translateY(-50%);
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--pink);
+    box-shadow: 0 0 6px var(--pink);
+  }
+  .progress-track:hover .progress-fill::after {
+    width: 12px; height: 12px;
+  }
+
+  /* ===== CARDS ===== */
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 0.12em;
+    color: var(--pink);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ===== ADD PODCAST ===== */
+  .add-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 32px;
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+  .add-form input {
+    flex: 1;
+    min-width: 200px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .add-form input:focus { border-color: var(--pink); }
+  .add-form input::placeholder { color: var(--text-dim); }
+
+  .btn-primary {
+    background: var(--pink);
+    border: none;
+    color: white;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.12em;
+    padding: 10px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    box-shadow: 0 0 16px var(--pink-glow);
+  }
+  .btn-primary:hover {
+    background: var(--pink-bright);
+    box-shadow: 0 0 24px var(--pink-glow-strong);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5; cursor: not-allowed;
+  }
+
+  /* ===== PODCAST LIST ===== */
+  .podcast-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .podcast-card {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .podcast-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--pink);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .podcast-card:hover { border-color: rgba(255,45,120,0.5); }
+  .podcast-card:hover::before { opacity: 1; }
+
+  .podcast-art {
+    width: 56px; height: 56px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--navy-light);
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .podcast-art-placeholder {
+    width: 56px; height: 56px;
+    border-radius: 6px;
+    background: var(--navy-light);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+  }
+
+  .podcast-info { flex: 1; min-width: 0; }
+  .podcast-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .podcast-meta {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+  .podcast-queue-label {
+    font-size: 0.65rem;
+    color: var(--pink);
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  .podcast-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .btn-small {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-small:hover { border-color: var(--pink); color: var(--pink); }
+  .btn-small.danger:hover { border-color: #ff4444; color: #ff4444; }
+
+  .drag-handle {
+    color: var(--text-dim);
+    cursor: grab;
+    font-size: 1rem;
+    padding: 4px;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+  }
+  .drag-handle:hover { opacity: 1; color: var(--pink); }
+
+  /* ===== QUEUE INDICATOR ===== */
+  .queue-order {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    color: var(--pink);
+    min-width: 28px;
+    text-align: center;
+    opacity: 0.6;
+    flex-shrink: 0;
+  }
+
+  /* ===== HISTORY PAGE ===== */
+  .history-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 7px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--pink); color: var(--pink); }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .history-item {
+    background: var(--navy-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+  .history-item:hover { border-color: var(--border); }
+  .history-check {
+    width: 18px; height: 18px;
+    border: 1px solid var(--pink);
+    border-radius: 3px;
+    background: var(--pink-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .history-check:hover { background: var(--pink); }
+  .history-check svg { width: 10px; height: 10px; fill: var(--pink); }
+  .history-check:hover svg { fill: white; }
+
+  .history-info { flex: 1; min-width: 0; }
+  .history-show {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--pink);
+    margin-bottom: 2px;
+  }
+  .history-ep {
+    font-size: 0.78rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .history-date {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .history-remove {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 2px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+  .history-remove:hover { color: #ff4444; }
+
+  /* ===== EMPTY STATES ===== */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.4; }
+  .empty-state p { font-size: 0.8rem; line-height: 1.7; }
+  .empty-state .hint { font-size: 0.7rem; color: var(--pink); margin-top: 8px; opacity: 0.7; }
+
+  /* ===== LOADING / STATUS ===== */
+  .status-msg {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    border-left: 2px solid var(--pink);
+    margin-bottom: 16px;
+    display: none;
+  }
+  .status-msg.visible { display: block; }
+  .status-msg.error { border-color: #ff4444; color: #ff8888; }
+
+  /* ===== RADIO SCHEDULE VIEW ===== */
+  .schedule-view {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+  .schedule-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    font-size: 0.75rem;
+    cursor: default;
+  }
+  .schedule-item.now-playing {
+    border-color: var(--pink);
+    background: var(--pink-glow);
+  }
+  .schedule-item.now-playing .sch-label {
+    color: var(--pink);
+    animation: blink 1.2s step-end infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .schedule-item .sch-label {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.1em;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    min-width: 70px;
+  }
+  .schedule-item .sch-show {
+    color: var(--text);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .schedule-item .sch-ep {
+    color: var(--text-dim);
+    font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--navy); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,45,120,0.3); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    header { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
+    .logo { font-size: 1.7rem; }
+    main { padding: 20px 16px 200px; }
+    #now-playing-bar { padding: 12px 16px 16px; }
+    .np-episode { max-width: 260px; }
+    .sch-ep { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">JAYNE<span> AIR</span></div>
+  <div class="signal-bars">
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div>
+  </div>
+  <nav>
+    <button class="nav-btn active" onclick="showPage('library')">Library</button>
+    <button class="nav-btn" onclick="showPage('schedule')">On Air</button>
+    <button class="nav-btn" onclick="showPage('history')">History</button>
+  </nav>
+</header>
+
+<main>
+  <!-- LIBRARY PAGE -->
+  <div class="page active" id="page-library">
+    <div class="section-title">Subscribe</div>
+
+    <div class="add-form">
+      <input type="url" id="rss-input" placeholder="Paste RSS feed URL..." />
+      <button class="btn-primary" id="add-btn" onclick="addPodcast()">Add Feed</button>
+    </div>
+
+    <div id="add-status" class="status-msg"></div>
+
+    <div class="section-title">Your Podcasts</div>
+    <div class="podcast-grid" id="podcast-list"></div>
+  </div>
+
+  <!-- SCHEDULE / ON AIR PAGE -->
+  <div class="page" id="page-schedule">
+    <div class="section-title">On Air Schedule</div>
+    <p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:20px;">
+      Episodes play in rotation — oldest unheard episode from each podcast in order.
+    </p>
+    <div class="schedule-view" id="schedule-view"></div>
+  </div>
+
+  <!-- HISTORY PAGE -->
+  <div class="page" id="page-history">
+    <div class="section-title">Listening History</div>
+    <div class="history-controls">
+      <span style="font-size:0.72rem;color:var(--text-dim);">Episodes marked as heard won't be played again.</span>
+      <button class="btn-ghost" onclick="clearHistory()">Clear All</button>
+    </div>
+    <div id="history-status" class="status-msg"></div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+</main>
+
+<!-- NOW PLAYING BAR -->
+<div id="now-playing-bar">
+  <div class="np-track-info">
+    <div class="np-show" id="np-show">— JAYNE AIR —</div>
+    <div class="np-episode" id="np-episode">No episode playing · Add a podcast to begin</div>
+  </div>
+  <div class="np-controls">
+    <button class="ctrl-btn" onclick="skipBack()" title="Back 10s">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="1 4 1 10 7 10"></polyline>
+        <path d="M3.51 15a9 9 0 1 0 .49-3.29"></path>
+      </svg>
+      <span>10</span>
+    </button>
+    <button id="play-pause-btn" onclick="togglePlay()">
+      <svg id="play-icon" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg id="pause-icon" viewBox="0 0 24 24" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+    <button class="ctrl-btn" onclick="skipForward()" title="Forward 30s">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <path d="M20.49 15a9 9 0 1 1-.49-3.29"></path>
+      </svg>
+      <span>30</span>
+    </button>
+    <button class="ctrl-btn" onclick="nextEpisode()" title="Next episode">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="5 4 15 12 5 20 5 4"></polygon>
+        <line x1="19" y1="5" x2="19" y2="19"></line>
+      </svg>
+      <span>Next</span>
+    </button>
+  </div>
+  <div class="np-progress">
+    <span class="time-label" id="time-current">0:00</span>
+    <div class="progress-track" onclick="seekTo(event)" id="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <span class="time-label" id="time-total">0:00</span>
+  </div>
+</div>
+
+<audio id="audio-player"></audio>
+
+<script>
+// ===== STATE =====
+let podcasts = JSON.parse(localStorage.getItem('ja_podcasts') || '[]');
+// [{id, name, rssUrl, artUrl, episodes: [{guid, title, url, pubDate, duration}]}]
+
+let history = JSON.parse(localStorage.getItem('ja_history') || '[]');
+// [{guid, podcastId, podcastName, episodeTitle, listenedAt}]
+
+let queue = []; // [{podcastId, podcastName, episode}]
+let queueIndex = 0;
+let isPlaying = false;
+
+const audio = document.getElementById('audio-player');
+
+// ===== SAVE =====
+function save() {
+  localStorage.setItem('ja_podcasts', JSON.stringify(podcasts));
+  localStorage.setItem('ja_history', JSON.stringify(history));
+}
+
+// ===== HELPERS =====
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function fmtTime(s) {
+  if (!s || isNaN(s)) return '0:00';
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60);
+  if (h) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function isListened(guid) {
+  return history.some(h => h.guid === guid);
+}
+
+function showStatus(el, msg, isError = false) {
+  el.textContent = msg;
+  el.className = 'status-msg visible' + (isError ? ' error' : '');
+  if (!isError) setTimeout(() => { el.className = 'status-msg'; }, 4000);
+}
+
+// ===== NAV =====
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (page === 'history') renderHistory();
+  if (page === 'schedule') renderSchedule();
+}
+
+// ===== RSS PARSING =====
+const CORS_PROXIES = [
+  // Direct fetch first — works if the podcast host allows CORS (many do)
+  { type: 'direct', url: u => u },
+  // allorigins returns JSON wrapper
+  { type: 'json', url: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}` },
+  // corsproxy.io returns raw text
+  { type: 'raw', url: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
+  // codetabs returns raw text
+  { type: 'raw', url: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` },
+];
+
+async function fetchRSS(url) {
+  const parser = new DOMParser();
+  let lastError = null;
+
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const proxyUrl = proxy.url(url);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (!res.ok) continue;
+
+      let text;
+      if (proxy.type === 'json') {
+        const data = await res.json();
+        text = data.contents;
+      } else {
+        text = await res.text();
+      }
+
+      if (!text || text.trim() === 'null') continue;
+
+      const xml = parser.parseFromString(text, 'text/xml');
+      if (xml.querySelector('parsererror')) continue;
+      // Must have at least a channel element
+      if (!xml.querySelector('channel')) continue;
+
+      return xml;
+    } catch (e) {
+      lastError = e;
+      // timeout or network error — try next proxy
+    }
+  }
+
+  throw new Error(lastError?.message === 'The operation was aborted.'
+    ? 'All proxies timed out. Check your internet connection.'
+    : 'Could not fetch feed. The URL may be incorrect, or the feed may be temporarily unavailable.');
+}
+
+function parseRSS(xml) {
+  const channel = xml.querySelector('channel');
+  const name = channel?.querySelector('title')?.textContent?.trim() || 'Unknown Podcast';
+  const artUrl = (
+    xml.querySelector('image url')?.textContent ||
+    xml.querySelector('itunes\\:image, image')?.getAttribute('href') ||
+    ''
+  ).trim();
+
+  const items = [...xml.querySelectorAll('item')];
+  const episodes = items.map(item => {
+    const enclosure = item.querySelector('enclosure');
+    const url = enclosure?.getAttribute('url') ||
+                item.querySelector('link')?.textContent?.trim() || '';
+    const guid = item.querySelector('guid')?.textContent?.trim() ||
+                 item.querySelector('link')?.textContent?.trim() || url;
+    const pubDateStr = item.querySelector('pubDate')?.textContent?.trim() || '';
+    const duration = item.querySelector('itunes\\:duration, duration')?.textContent?.trim() || '';
+    return {
+      guid,
+      title: item.querySelector('title')?.textContent?.trim() || 'Untitled',
+      url,
+      pubDate: pubDateStr ? new Date(pubDateStr).getTime() : 0,
+      duration
+    };
+  }).filter(ep => ep.url)
+    .sort((a, b) => a.pubDate - b.pubDate); // oldest first
+
+  return { name, artUrl, episodes };
+}
+
+// ===== ADD PODCAST =====
+async function addPodcast() {
+  const input = document.getElementById('rss-input');
+  const btn = document.getElementById('add-btn');
+  const status = document.getElementById('add-status');
+  const url = input.value.trim();
+
+  if (!url) return showStatus(status, 'Please enter an RSS URL.', true);
+  if (podcasts.some(p => p.rssUrl === url)) return showStatus(status, 'Already subscribed to this feed.', true);
+
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  showStatus(status, 'Fetching feed… trying multiple sources, this may take a few seconds.');
+
+  try {
+    const xml = await fetchRSS(url);
+    const { name, artUrl, episodes } = parseRSS(xml);
+    const podcast = { id: uid(), name, rssUrl: url, artUrl, episodes };
+    podcasts.push(podcast);
+    save();
+    input.value = '';
+    showStatus(status, `Added "${name}" — ${episodes.length} episodes found.`);
+    buildQueue();
+    renderPodcasts();
+  } catch (e) {
+    showStatus(status, `Failed to load feed: ${e.message}`, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add Feed';
+  }
+}
+
+// ===== REFRESH PODCAST =====
+async function refreshPodcast(id) {
+  const p = podcasts.find(x => x.id === id);
+  if (!p) return;
+  try {
+    const xml = await fetchRSS(p.rssUrl);
+    const { episodes } = parseRSS(xml);
+    p.episodes = episodes;
+    save();
+    buildQueue();
+    renderPodcasts();
+  } catch(e) {
+    alert('Could not refresh: ' + e.message);
+  }
+}
+
+function deletePodcast(id) {
+  if (!confirm('Remove this podcast?')) return;
+  podcasts = podcasts.filter(p => p.id !== id);
+  save();
+  buildQueue();
+  renderPodcasts();
+}
+
+// ===== QUEUE =====
+function buildQueue() {
+  queue = [];
+  // Round-robin: for each podcast, find oldest unlistened episode
+  // We'll interleave them: each podcast contributes one slot
+  const rounds = Math.max(...podcasts.map(p => p.episodes.length), 0);
+  let added = true;
+  let episodePointers = podcasts.map(() => 0);
+  while (added) {
+    added = false;
+    for (let pi = 0; pi < podcasts.length; pi++) {
+      const p = podcasts[pi];
+      let ep = null;
+      for (let ei = episodePointers[pi]; ei < p.episodes.length; ei++) {
+        if (!isListened(p.episodes[ei].guid)) {
+          ep = p.episodes[ei];
+          episodePointers[pi] = ei + 1;
+          break;
+        } else {
+          episodePointers[pi] = ei + 1;
+        }
+      }
+      if (ep) {
+        queue.push({ podcastId: p.id, podcastName: p.name, artUrl: p.artUrl, episode: ep });
+        added = true;
+      }
+    }
+  }
+  // Clamp queueIndex
+  if (queueIndex >= queue.length) queueIndex = 0;
+}
+
+// ===== PLAYBACK =====
+function playQueueItem(index) {
+  if (!queue.length) return;
+  queueIndex = index;
+  const item = queue[queueIndex];
+  if (!item) return;
+
+  audio.src = item.episode.url;
+  audio.play().catch(() => {});
+  isPlaying = true;
+
+  document.getElementById('np-show').textContent = item.podcastName;
+  document.getElementById('np-episode').textContent = item.episode.title;
+  updatePlayPauseUI();
+}
+
+function togglePlay() {
+  if (!audio.src || audio.src === window.location.href) {
+    if (queue.length) playQueueItem(queueIndex);
+    return;
+  }
+  if (isPlaying) { audio.pause(); isPlaying = false; }
+  else { audio.play(); isPlaying = true; }
+  updatePlayPauseUI();
+}
+
+function skipBack() { audio.currentTime = Math.max(0, audio.currentTime - 10); }
+function skipForward() { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 30); }
+
+function nextEpisode() {
+  markCurrentListened();
+  if (queueIndex + 1 < queue.length) {
+    playQueueItem(queueIndex + 1);
+  } else {
+    audio.pause();
+    isPlaying = false;
+    document.getElementById('np-show').textContent = '— JAYNE AIR —';
+    document.getElementById('np-episode').textContent = 'All caught up · No more episodes';
+    updatePlayPauseUI();
+  }
+  renderSchedule();
+}
+
+function markCurrentListened() {
+  if (!queue.length) return;
+  const item = queue[queueIndex];
+  if (!item || isListened(item.episode.guid)) return;
+  history.push({
+    guid: item.episode.guid,
+    podcastId: item.podcastId,
+    podcastName: item.podcastName,
+    episodeTitle: item.episode.title,
+    listenedAt: Date.now()
+  });
+  save();
+  buildQueue(); // rebuild without this ep
+}
+
+function updatePlayPauseUI() {
+  document.getElementById('play-icon').style.display = isPlaying ? 'none' : 'block';
+  document.getElementById('pause-icon').style.display = isPlaying ? 'block' : 'none';
+}
+
+// Audio events
+audio.addEventListener('timeupdate', () => {
+  const cur = audio.currentTime, dur = audio.duration || 0;
+  document.getElementById('time-current').textContent = fmtTime(cur);
+  document.getElementById('time-total').textContent = fmtTime(dur);
+  document.getElementById('progress-fill').style.width = dur ? (cur/dur*100) + '%' : '0%';
+});
+
+audio.addEventListener('ended', () => {
+  markCurrentListened();
+  buildQueue();
+  // play next
+  const nextIdx = queue.findIndex((q,i) => {
+    // find next item after current podcastId
+    return i >= queueIndex && q.podcastId !== (queue[queueIndex]?.podcastId);
+  });
+  playQueueItem(nextIdx >= 0 ? nextIdx : 0);
+  renderSchedule();
+});
+
+audio.addEventListener('play', () => { isPlaying = true; updatePlayPauseUI(); });
+audio.addEventListener('pause', () => { isPlaying = false; updatePlayPauseUI(); });
+
+function seekTo(e) {
+  const track = document.getElementById('progress-track');
+  const rect = track.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  audio.currentTime = pct * (audio.duration || 0);
+}
+
+// ===== RENDER PODCASTS =====
+function renderPodcasts() {
+  const list = document.getElementById('podcast-list');
+  if (!podcasts.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="icon">📻</div>
+      <p>No podcasts yet.<br>Add an RSS feed above to tune in.</p>
+      <div class="hint">Try: https://feeds.simplecast.com/54nAGcIl</div>
+    </div>`;
+    return;
+  }
+  list.innerHTML = '';
+  podcasts.forEach((p, i) => {
+    const nextEp = p.episodes.find(ep => !isListened(ep.guid));
+    const unheardCount = p.episodes.filter(ep => !isListened(ep.guid)).length;
+
+    const card = document.createElement('div');
+    card.className = 'podcast-card';
+    card.innerHTML = `
+      <div class="queue-order">${i+1}</div>
+      ${p.artUrl
+        ? `<img class="podcast-art" src="${p.artUrl}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="">`
+        : ''
+      }
+      <div class="podcast-art-placeholder" ${p.artUrl ? 'style="display:none"' : ''}>🎙️</div>
+      <div class="podcast-info">
+        <div class="podcast-name">${p.name}</div>
+        <div class="podcast-meta">${unheardCount} unheard · ${p.episodes.length} total</div>
+        ${nextEp ? `<div class="podcast-queue-label">↳ ${nextEp.title}</div>` : '<div class="podcast-queue-label" style="color:var(--text-dim)">↳ All caught up</div>'}
+      </div>
+      <div class="podcast-actions">
+        ${nextEp ? `<button class="btn-small" onclick="playFromPodcast('${p.id}')">▶ Play</button>` : ''}
+        <button class="btn-small" onclick="refreshPodcast('${p.id}')">↺ Refresh</button>
+        <button class="btn-small danger" onclick="deletePodcast('${p.id}')">✕</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function playFromPodcast(podcastId) {
+  const idx = queue.findIndex(q => q.podcastId === podcastId);
+  if (idx >= 0) playQueueItem(idx);
+}
+
+// ===== RENDER SCHEDULE =====
+function renderSchedule() {
+  const view = document.getElementById('schedule-view');
+  if (!queue.length) {
+    view.innerHTML = `<div class="empty-state">
+      <div class="icon">📡</div>
+      <p>No episodes scheduled.<br>Add podcasts in the Library to populate the schedule.</p>
+    </div>`;
+    return;
+  }
+  view.innerHTML = '';
+  const display = queue.slice(0, 20);
+  display.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'schedule-item' + (i === queueIndex ? ' now-playing' : '');
+    div.innerHTML = `
+      <span class="sch-label">${i === queueIndex ? '● ON AIR' : `UP ${i+1}`}</span>
+      <span class="sch-show">${item.podcastName}</span>
+      <span class="sch-ep">${item.episode.title}</span>
+    `;
+    div.onclick = () => { queueIndex = i; playQueueItem(i); renderSchedule(); };
+    div.style.cursor = 'pointer';
+    view.appendChild(div);
+  });
+  if (queue.length > 20) {
+    const more = document.createElement('div');
+    more.style.cssText = 'font-size:0.7rem;color:var(--text-dim);text-align:center;padding:12px';
+    more.textContent = `+ ${queue.length - 20} more episodes`;
+    view.appendChild(more);
+  }
+}
+
+// ===== RENDER HISTORY =====
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const status = document.getElementById('history-status');
+
+  if (!history.length) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="icon">🎧</div>
+      <p>No listening history yet.<br>Episodes you've heard will appear here.</p>
+    </div>`;
+    return;
+  }
+
+  const sorted = [...history].sort((a,b) => b.listenedAt - a.listenedAt);
+  list.innerHTML = '';
+  sorted.forEach(h => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.innerHTML = `
+      <div class="history-check" onclick="unmarkListened('${h.guid}')" title="Mark as unheard">
+        <svg viewBox="0 0 12 10"><polyline points="1,5 4,8 11,1" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+      </div>
+      <div class="history-info">
+        <div class="history-show">${h.podcastName}</div>
+        <div class="history-ep">${h.episodeTitle}</div>
+        <div class="history-date">Listened ${new Date(h.listenedAt).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}</div>
+      </div>
+      <button class="history-remove" onclick="removeFromHistory('${h.guid}')" title="Remove from history">✕</button>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function unmarkListened(guid) {
+  if (!confirm('Mark as unheard? This episode will be added back to the queue.')) return;
+  removeFromHistory(guid);
+}
+
+function removeFromHistory(guid) {
+  history = history.filter(h => h.guid !== guid);
+  save();
+  buildQueue();
+  renderHistory();
+  renderPodcasts();
+}
+
+function clearHistory() {
+  if (!confirm('Clear all listening history? All episodes will be queued again.')) return;
+  history = [];
+  save();
+  buildQueue();
+  renderHistory();
+  renderPodcasts();
+}
+
+// ===== INIT =====
+buildQueue();
+renderPodcasts();
+</script>
+</body>
+</html>
