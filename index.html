@@ -437,9 +437,10 @@ let history     = {};   // {guid: {podcastName, episodeTitle, listenedAt}}
 let queue       = [];
 let queueIndex  = 0;
 let isPlaying   = false;
-let unsubPodcasts = null;
-let unsubHistory  = null;
-let syncTimer     = null;
+let unsubPodcasts  = null;
+let unsubHistory   = null;
+let syncTimer      = null;
+let pendingNextGuid = null; // guid to seek to after next queue rebuild
 
 const audio = document.getElementById('audio-player');
 
@@ -489,7 +490,14 @@ function startListeners() {
 
   unsubHistory = onSnapshot(doc(db, 'users', uid, 'data', 'history'), snap => {
     history = snap.exists() ? (snap.data() || {}) : {};
-    buildQueue(); renderPodcasts(); renderSchedule(); renderHistory();
+    // If we're mid-advance, use pendingNextGuid to restore the right queue position
+    if (pendingNextGuid !== null) {
+      buildQueue(pendingNextGuid);
+      playOrFinish(pendingNextGuid);
+    } else {
+      buildQueue();
+    }
+    renderPodcasts(); renderSchedule(); renderHistory();
   });
 }
 
@@ -678,9 +686,12 @@ async function markListenedAndAdvance() {
   const item = queue[queueIndex];
   if (!item) return;
 
-  // Capture the next On Air slot BEFORE rebuilding (rebuilding removes current ep)
-  const nextOnAirIndex = queueIndex + 1;
+  // Remember what episode SHOULD play next in the On Air list
+  // before we do anything that rebuilds the queue
+  const nextItem = queue[queueIndex + 1] || null;
+  const nextGuid = nextItem ? nextItem.episode.guid : null;
 
+  // Mark current episode as listened
   if (!isListened(item.episode.guid)) {
     history[item.episode.guid] = {
       podcastId:    item.podcastId,
@@ -688,21 +699,28 @@ async function markListenedAndAdvance() {
       episodeTitle: item.episode.title,
       listenedAt:   Date.now()
     };
+    // saveHistory triggers the Firestore onSnapshot which calls buildQueue.
+    // We pass nextGuid so buildQueue restores queueIndex to the right place.
+    pendingNextGuid = nextGuid;
     await saveHistory();
-  }
-
-  // Rebuild — current ep is removed, so slot nextOnAirIndex shifts down by 1
-  buildQueue();
-  const targetIndex = nextOnAirIndex - 1;
-
-  if (targetIndex < queue.length) {
-    playQueueItem(targetIndex);
+    pendingNextGuid = null;
   } else {
-    audio.pause();
-    document.getElementById('np-show').textContent    = '— JAYNE AIR —';
-    document.getElementById('np-episode').textContent = 'All caught up · No more episodes';
-    updatePlayUI();
+    // Already listened (e.g. double-click) — just advance
+    buildQueue(nextGuid);
+    playOrFinish(nextGuid);
   }
+}
+
+function playOrFinish(guid) {
+  if (guid) {
+    const idx = queue.findIndex(q => q.episode.guid === guid);
+    if (idx >= 0) { playQueueItem(idx); return; }
+  }
+  if (queue.length) { playQueueItem(0); return; }
+  audio.pause();
+  document.getElementById('np-show').textContent    = '— JAYNE AIR —';
+  document.getElementById('np-episode').textContent = 'All caught up · No more episodes';
+  updatePlayUI();
 }
 
 function updatePlayUI() {
