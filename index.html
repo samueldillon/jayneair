@@ -669,29 +669,40 @@ window.skipBack    = () => { audio.currentTime = Math.max(0, audio.currentTime -
 window.skipForward = () => { audio.currentTime = Math.min(audio.duration||0, audio.currentTime + 30); };
 
 window.nextEpisode = async () => {
-  await markListened();
-  if (queueIndex < queue.length) { playQueueItem(queueIndex); }
-  else {
+  await markListenedAndAdvance();
+  renderSchedule();
+};
+
+async function markListenedAndAdvance() {
+  if (!queue.length) return;
+  const item = queue[queueIndex];
+  if (!item) return;
+
+  // Capture the next On Air slot BEFORE rebuilding (rebuilding removes current ep)
+  const nextOnAirIndex = queueIndex + 1;
+
+  if (!isListened(item.episode.guid)) {
+    history[item.episode.guid] = {
+      podcastId:    item.podcastId,
+      podcastName:  item.podcastName,
+      episodeTitle: item.episode.title,
+      listenedAt:   Date.now()
+    };
+    await saveHistory();
+  }
+
+  // Rebuild — current ep is removed, so slot nextOnAirIndex shifts down by 1
+  buildQueue();
+  const targetIndex = nextOnAirIndex - 1;
+
+  if (targetIndex < queue.length) {
+    playQueueItem(targetIndex);
+  } else {
     audio.pause();
     document.getElementById('np-show').textContent    = '— JAYNE AIR —';
     document.getElementById('np-episode').textContent = 'All caught up · No more episodes';
     updatePlayUI();
   }
-  renderSchedule();
-};
-
-async function markListened() {
-  if (!queue.length) return;
-  const item = queue[queueIndex];
-  if (!item || isListened(item.episode.guid)) return;
-  history[item.episode.guid] = {
-    podcastId:    item.podcastId,
-    podcastName:  item.podcastName,
-    episodeTitle: item.episode.title,
-    listenedAt:   Date.now()
-  };
-  await saveHistory();
-  buildQueue();
 }
 
 function updatePlayUI() {
@@ -709,9 +720,7 @@ audio.addEventListener('timeupdate', () => {
   document.getElementById('progress-fill').style.width = dur ? (cur/dur*100)+'%' : '0%';
 });
 audio.addEventListener('ended', async () => {
-  await markListened();
-  buildQueue();
-  playQueueItem(queueIndex < queue.length ? queueIndex : 0);
+  await markListenedAndAdvance();
   renderSchedule();
 });
 
