@@ -276,14 +276,178 @@
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: var(--navy); }
   ::-webkit-scrollbar-thumb { background: rgba(255,45,120,0.3); border-radius: 3px; }
-  @media (max-width: 600px) {
-    header { padding: 14px 16px; }
-    .logo { font-size: 1.7rem; }
-    main { padding: 20px 16px 200px; }
-    #now-playing-bar { padding: 12px 16px 16px; }
-    .np-episode { max-width: 260px; }
+  /* ===== MOBILE MINI-PLAYER ===== */
+  /* Overlay that dims the page when player is expanded */
+  #player-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 190;
+    backdrop-filter: blur(2px);
+  }
+  #player-overlay.visible { display: block; }
+
+  @media (max-width: 640px) {
+    header { padding: 14px 16px; flex-wrap: nowrap; }
+    .logo { font-size: 1.6rem; }
+    .signal-bars { display: none; }
+    main { padding: 16px 16px 90px; }
     .sch-ep { display: none; }
     .user-name { display: none; }
+
+    /* ── Mini bar (collapsed, always visible) ── */
+    #now-playing-bar {
+      padding: 0;
+      height: 68px;
+      overflow: hidden;
+      transition: height 0.38s cubic-bezier(0.4,0,0.2,1),
+                  border-radius 0.38s ease;
+      border-radius: 16px 16px 0 0;
+      cursor: pointer;
+    }
+    #now-playing-bar.expanded {
+      height: 100dvh;
+      border-radius: 0;
+      cursor: default;
+      overflow-y: auto;
+    }
+
+    /* Mini bar row — shown when collapsed */
+    .mini-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      height: 68px;
+      flex-shrink: 0;
+    }
+    .mini-art {
+      width: 42px; height: 42px;
+      border-radius: 6px;
+      background: var(--navy-light);
+      border: 1px solid var(--border);
+      object-fit: cover;
+      flex-shrink: 0;
+      font-size: 1.2rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .mini-info { flex: 1; min-width: 0; }
+    .mini-show {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.75rem; letter-spacing: 0.12em;
+      color: var(--pink); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .mini-ep {
+      font-size: 0.65rem; color: var(--text-dim);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mini-play {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: var(--pink); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 14px var(--pink-glow-strong);
+      flex-shrink: 0; transition: transform 0.15s;
+    }
+    .mini-play:active { transform: scale(0.92); }
+    .mini-play svg { width: 16px; height: 16px; fill: white; }
+    /* thin progress line at top of mini bar */
+    .mini-progress-line {
+      height: 2px;
+      background: rgba(255,255,255,0.08);
+      position: relative;
+    }
+    .mini-progress-fill {
+      height: 100%;
+      background: var(--pink);
+      width: 0%;
+      transition: width 0.25s linear;
+    }
+
+    /* Full expanded player — hidden on desktop */
+    .expanded-player {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 24px 40px;
+      min-height: calc(100dvh - 68px);
+    }
+    /* drag handle */
+    .drag-handle-bar {
+      width: 36px; height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.2);
+      margin: 14px auto 24px;
+      flex-shrink: 0;
+    }
+    .exp-art {
+      width: min(220px, 60vw); height: min(220px, 60vw);
+      border-radius: 16px;
+      background: var(--navy-light);
+      border: 1px solid var(--border);
+      object-fit: cover;
+      margin-bottom: 28px;
+      box-shadow: 0 8px 40px rgba(255,45,120,0.2);
+      font-size: 4rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .exp-show {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1rem; letter-spacing: 0.15em;
+      color: var(--pink); text-align: center;
+      margin-bottom: 6px;
+    }
+    .exp-episode {
+      font-size: 0.75rem; color: var(--text-dim);
+      text-align: center; line-height: 1.5;
+      max-width: 280px; margin-bottom: 28px;
+    }
+    .exp-progress {
+      width: 100%; display: flex;
+      align-items: center; gap: 10px;
+      margin-bottom: 28px;
+    }
+    .exp-controls {
+      display: flex; align-items: center;
+      justify-content: center; gap: 20px;
+      width: 100%; margin-bottom: 16px;
+    }
+    .exp-ctrl {
+      background: none; border: none; color: var(--text-dim);
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.65rem; letter-spacing: 0.1em;
+      transition: color 0.2s; padding: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .exp-ctrl:active { color: var(--pink); }
+    .exp-ctrl svg { width: 26px; height: 26px; }
+    #exp-play-btn {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: var(--pink); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 24px var(--pink-glow-strong), 0 0 48px var(--pink-glow);
+      transition: transform 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #exp-play-btn:active { transform: scale(0.94); }
+    #exp-play-btn svg { width: 28px; height: 28px; fill: white; }
+
+    /* Hide desktop player elements on mobile */
+    .np-track-info,
+    .np-controls,
+    .np-progress { display: none; }
+  }
+
+  /* On desktop, hide mobile-only elements */
+  @media (min-width: 641px) {
+    .mini-bar, .mini-progress-line,
+    .expanded-player, #player-overlay { display: none !important; }
+    .np-track-info { display: block; }
+    .np-controls { display: flex; }
+    .np-progress { display: flex; }
   }
 </style>
 </head>
@@ -363,7 +527,69 @@
   </main>
 
   <!-- NOW PLAYING BAR -->
-  <div id="now-playing-bar">
+  <div id="now-playing-bar" onclick="handleBarClick(event)">
+
+    <!-- ── MOBILE: thin progress line at very top ── -->
+    <div class="mini-progress-line">
+      <div class="mini-progress-fill" id="mini-progress-fill"></div>
+    </div>
+
+    <!-- ── MOBILE: mini collapsed bar ── -->
+    <div class="mini-bar">
+      <div class="mini-art" id="mini-art">🎙️</div>
+      <div class="mini-info">
+        <div class="mini-show" id="mini-show">— JAYNE AIR —</div>
+        <div class="mini-ep" id="mini-ep">Tap to expand</div>
+      </div>
+      <button class="mini-play" id="mini-play-btn" onclick="event.stopPropagation(); togglePlay()">
+        <svg id="mini-play-icon" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+        <svg id="mini-pause-icon" viewBox="0 0 24 24" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+    </div>
+
+    <!-- ── MOBILE: expanded full-screen player ── -->
+    <div class="expanded-player" id="expanded-player">
+      <div class="drag-handle-bar"></div>
+      <div class="exp-art" id="exp-art">🎙️</div>
+      <div class="exp-show" id="exp-show">— JAYNE AIR —</div>
+      <div class="exp-episode" id="exp-episode">No episode playing</div>
+      <div class="exp-progress">
+        <span class="time-label" id="exp-time-current">0:00</span>
+        <div class="progress-track" onclick="seekTo(event)">
+          <div class="progress-fill" id="exp-progress-fill"></div>
+        </div>
+        <span class="time-label" id="exp-time-total">0:00</span>
+      </div>
+      <div class="exp-controls">
+        <button class="exp-ctrl" onclick="skipBack()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 .49-3.29"></path>
+          </svg>
+          <span>−10s</span>
+        </button>
+        <button id="exp-play-btn" onclick="togglePlay()">
+          <svg id="exp-play-icon" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+          <svg id="exp-pause-icon" viewBox="0 0 24 24" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button class="exp-ctrl" onclick="skipForward()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-.49-3.29"></path>
+          </svg>
+          <span>+30s</span>
+        </button>
+        <button class="exp-ctrl" onclick="nextEpisode()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+            <line x1="19" y1="5" x2="19" y2="19"></line>
+          </svg>
+          <span>Next</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── DESKTOP: original layout ── -->
     <div class="np-track-info">
       <div class="np-show" id="np-show">— JAYNE AIR —</div>
       <div class="np-episode" id="np-episode">No episode playing · Add a podcast to begin</div>
@@ -406,6 +632,9 @@
     </div>
   </div>
 </div>
+
+<!-- Overlay behind expanded player -->
+<div id="player-overlay" onclick="collapsePlayer()"></div>
 
 <div id="sync-indicator">Saving…</div>
 <audio id="audio-player"></audio>
@@ -663,8 +892,31 @@ window.playQueueItem = (index) => {
   if (!item) return;
   audio.src = item.episode.url;
   audio.play().catch(() => {});
+
+  // Desktop
   document.getElementById('np-show').textContent    = item.podcastName;
   document.getElementById('np-episode').textContent = item.episode.title;
+
+  // Mobile mini bar
+  document.getElementById('mini-show').textContent = item.podcastName;
+  document.getElementById('mini-ep').textContent   = item.episode.title;
+
+  // Mobile expanded
+  document.getElementById('exp-show').textContent    = item.podcastName;
+  document.getElementById('exp-episode').textContent = item.episode.title;
+
+  // Artwork — use podcast art if available
+  const artUrl = item.artUrl || '';
+  const miniArt = document.getElementById('mini-art');
+  const expArt  = document.getElementById('exp-art');
+  if (artUrl) {
+    miniArt.innerHTML = `<img src="${artUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:6px" onerror="this.parentElement.textContent='🎙️'">`;
+    expArt.innerHTML  = `<img src="${artUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:16px" onerror="this.parentElement.textContent='🎙️'">`;
+  } else {
+    miniArt.textContent = '🎙️';
+    expArt.textContent  = '🎙️';
+  }
+
   updatePlayUI();
 };
 
@@ -723,19 +975,70 @@ function playOrFinish(guid) {
   updatePlayUI();
 }
 
+// ===== MOBILE PLAYER EXPAND/COLLAPSE =====
+let playerExpanded = false;
+
+window.handleBarClick = (e) => {
+  // Only expand on mobile, and only if clicking the mini-bar area (not expanded controls)
+  if (window.innerWidth > 640) return;
+  if (playerExpanded) return;
+  expandPlayer();
+};
+
+function expandPlayer() {
+  playerExpanded = true;
+  document.getElementById('now-playing-bar').classList.add('expanded');
+  document.getElementById('player-overlay').classList.add('visible');
+  document.body.style.overflow = 'hidden';
+}
+
+window.collapsePlayer = () => {
+  playerExpanded = false;
+  document.getElementById('now-playing-bar').classList.remove('expanded');
+  document.getElementById('player-overlay').classList.remove('visible');
+  document.body.style.overflow = '';
+};
+
+// Close expanded player on swipe down
+(function() {
+  let startY = 0;
+  const bar = document.getElementById('now-playing-bar');
+  bar.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+  bar.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > 60 && playerExpanded) collapsePlayer();
+  }, { passive: true });
+})();
+
 function updatePlayUI() {
   isPlaying = !audio.paused;
+  // Desktop
   document.getElementById('play-icon').style.display  = isPlaying ? 'none'  : 'block';
   document.getElementById('pause-icon').style.display = isPlaying ? 'block' : 'none';
+  // Mobile mini
+  document.getElementById('mini-play-icon').style.display  = isPlaying ? 'none'  : 'block';
+  document.getElementById('mini-pause-icon').style.display = isPlaying ? 'block' : 'none';
+  // Mobile expanded
+  document.getElementById('exp-play-icon').style.display  = isPlaying ? 'none'  : 'block';
+  document.getElementById('exp-pause-icon').style.display = isPlaying ? 'block' : 'none';
 }
 
 audio.addEventListener('play',  updatePlayUI);
 audio.addEventListener('pause', updatePlayUI);
 audio.addEventListener('timeupdate', () => {
   const cur = audio.currentTime, dur = audio.duration || 0;
-  document.getElementById('time-current').textContent = fmtTime(cur);
-  document.getElementById('time-total').textContent   = fmtTime(dur);
-  document.getElementById('progress-fill').style.width = dur ? (cur/dur*100)+'%' : '0%';
+  const pct = dur ? (cur/dur*100)+'%' : '0%';
+  const curStr = fmtTime(cur), durStr = fmtTime(dur);
+  // Desktop
+  document.getElementById('time-current').textContent = curStr;
+  document.getElementById('time-total').textContent   = durStr;
+  document.getElementById('progress-fill').style.width = pct;
+  // Mobile mini line
+  document.getElementById('mini-progress-fill').style.width = pct;
+  // Mobile expanded
+  document.getElementById('exp-time-current').textContent = curStr;
+  document.getElementById('exp-time-total').textContent   = durStr;
+  document.getElementById('exp-progress-fill').style.width = pct;
 });
 audio.addEventListener('ended', async () => {
   await markListenedAndAdvance();
