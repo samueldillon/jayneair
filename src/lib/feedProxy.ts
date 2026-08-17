@@ -9,33 +9,42 @@
 // Function once Blaze (or a Cloudflare Workers alternative) is set up;
 // see git history for the previous implementation.
 interface ProxyDef {
+  name: string;
   build: (url: string) => string;
 }
 
 const PROXIES: ProxyDef[] = [
-  { build: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
-  { build: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
-  { build: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` },
+  { name: 'allorigins', build: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+  { name: 'codetabs', build: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` },
+  { name: 'corsproxy.io', build: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
 ];
 
 export async function fetchFeedXml(feedUrl: string): Promise<string> {
-  let lastError: Error | null = null;
+  const failures: string[] = [];
 
   for (const proxy of PROXIES) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
+    const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
       const res = await fetch(proxy.build(feedUrl), { signal: controller.signal });
-      if (!res.ok) throw new Error(`Proxy returned ${res.status}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
-      if (!text.trim()) throw new Error('Empty response');
+      if (!text.trim()) throw new Error('empty response');
       return text;
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
+      // A CORS rejection (the proxy didn't send back permissive headers) and
+      // a genuine network failure both surface as the same opaque
+      // "Failed to fetch" TypeError — browsers deliberately hide the real
+      // reason from JS. Naming which proxy + attempt failed here is the
+      // most we can report; the real detail only shows up in the browser's
+      // own DevTools Network tab.
+      const reason = err instanceof Error ? err.message : String(err);
+      failures.push(`${proxy.name}: ${reason}`);
+      console.error(`[feedProxy] ${proxy.name} failed for ${feedUrl}:`, err);
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  throw new Error(`Could not fetch feed — all proxies failed (${lastError?.message ?? 'unknown error'})`);
+  throw new Error(`Could not fetch feed — tried ${PROXIES.length} proxies, all failed (${failures.join('; ')})`);
 }
