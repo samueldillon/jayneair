@@ -166,6 +166,26 @@ to `gstatic.com` or any Cast device. The graceful-degrade path (SDK
 unreachable → no Cast button → local playback unaffected) is verified; the
 actual cast-and-control path needs a hands-on check in real desktop Chrome.
 
+### One-tap auto-cast (`?autocast=1`)
+
+Opening the app with this query param calls `requestAutoCast()`, which waits
+for a Cast session (including a silent rejoin of a previously-started one —
+the SDK's `ORIGIN_SCOPED` auto-join needs no user gesture for that) and then
+either resumes whatever's already `currentEpisode` or, if nothing was
+playing yet, starts the front of the queue. It's the same
+resume-vs-advance logic manual playback uses, not a separate path — it just
+forces `autoplay: true` and skips waiting for a manual tap on the Cast icon.
+
+This exists to back a physical-button-style trigger: since Chromecast's
+LOAD command has to come from a device on the same LAN (there's no cloud
+API for it), and iOS can't cast at all, the realistic setup is an Android
+phone/tablet with a home-screen shortcut or automation (e.g. Tasker off a
+Bluetooth button) that opens `https://<app>/?autocast=1` in Chrome. The
+very first use still needs one manual tap to pick the Nest speaker as the
+Cast target; every use after that is just opening the URL. Verified the
+branching (resume vs. advance-to-front) against a simulated connection
+event, since there's no real Cast session to trigger this against here.
+
 ## CORS
 
 RSS feeds don't set CORS headers for arbitrary origins, so feed XML is
