@@ -2,10 +2,13 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { authReady, currentUser, isAllowed } from './lib/auth';
 import { migrateLegacyDataIfNeeded } from './lib/migrateLegacy';
+import { initPlayer } from './lib/player';
 import { subscribeToLibrary } from './lib/podcasts';
-import { showToast } from './lib/store';
+import { activeTab, showToast } from './lib/store';
 import { Library } from './components/Library';
+import { Player } from './components/Player';
 import { SignInScreen } from './components/SignInScreen';
+import { TabBar } from './components/TabBar';
 import { Toast } from './components/Toast';
 
 export function App() {
@@ -36,10 +39,12 @@ export function App() {
       setLibraryReady(true);
     })();
 
-    const unsubscribe = subscribeToLibrary(user.uid);
+    const unsubscribeLibrary = subscribeToLibrary(user.uid);
+    const disposePlayer = initPlayer(user.uid);
     return () => {
       cancelled = true;
-      unsubscribe();
+      unsubscribeLibrary();
+      disposePlayer();
     };
   }, [user?.uid]);
 
@@ -57,7 +62,8 @@ export function App() {
 
   return (
     <>
-      <Library uid={user.uid} />
+      {activeTab.value === 'player' ? <Player /> : <Library uid={user.uid} />}
+      <TabBar />
       <Toast />
     </>
   );

@@ -4,6 +4,7 @@ import type { Episode, Podcast } from '../types';
 export const podcasts = signal<Podcast[]>([]);
 export const episodesByPodcast = signal<Record<string, Episode[]>>({});
 export const expandedPodcastId = signal<string | null>(null);
+export const activeTab = signal<'player' | 'library'>('player');
 
 export const libraryLoading = signal(false);
 export const libraryError = signal<string | null>(null);
