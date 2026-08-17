@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks';
 import { refreshAllPodcasts } from '../lib/podcasts';
-import { libraryError, podcasts } from '../lib/store';
+import { expandedPodcastId, libraryError, podcasts } from '../lib/store';
 import { AddPodcastModal } from './AddPodcastModal';
+import { EpisodeList } from './EpisodeList';
 import { PodcastCard } from './PodcastCard';
 
 interface Props {
@@ -12,6 +13,7 @@ export function Library({ uid }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const list = podcasts.value;
+  const expandedId = expandedPodcastId.value;
 
   async function handleRefreshAll() {
     setRefreshing(true);
@@ -20,6 +22,10 @@ export function Library({ uid }: Props) {
     } finally {
       setRefreshing(false);
     }
+  }
+
+  if (expandedId) {
+    return <EpisodeList uid={uid} podcastId={expandedId} />;
   }
 
   return (

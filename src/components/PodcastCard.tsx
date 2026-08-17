@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { episodesByPodcast, libraryError } from '../lib/store';
+import { episodesByPodcast, expandedPodcastId, libraryError } from '../lib/store';
 import { removePodcast, refreshPodcast } from '../lib/podcasts';
 import type { Podcast } from '../types';
 
@@ -42,6 +42,12 @@ export function PodcastCard({ uid, podcast }: Props) {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={() => (expandedPodcastId.value = podcast.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') expandedPodcastId.value = podcast.id;
+      }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -50,6 +56,7 @@ export function PodcastCard({ uid, podcast }: Props) {
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-md)',
         padding: 'var(--space-4)',
+        cursor: 'pointer',
       }}
     >
       {podcast.artworkUrl ? (
@@ -82,7 +89,7 @@ export function PodcastCard({ uid, podcast }: Props) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--space-2)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
         <button
           onClick={handleRefresh}
           disabled={busy !== null}

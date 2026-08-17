@@ -17,6 +17,8 @@
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.9.0",
+    "@types/node": "^26.2.0",
+    "firebase-admin": "^14.2.0",
     "firebase-tools": "^13.15.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4",
