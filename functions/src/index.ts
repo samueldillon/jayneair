@@ -4,7 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 
 initializeApp();
 
-const ALLOWED_EMAILS = ['samueldillon@gmail.com'];
+const ALLOWED_EMAILS = ['samueldillon@gmail.com', 'jayneedw@gmail.com'];
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
