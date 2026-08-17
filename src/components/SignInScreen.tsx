@@ -1,4 +1,5 @@
 import { authError, isAllowed, signIn, signOutUser, currentUser } from '../lib/auth';
+import { ThemeToggle } from './ThemeToggle';
 
 export function SignInScreen() {
   const user = currentUser.value;
@@ -15,8 +16,12 @@ export function SignInScreen() {
         gap: 'var(--space-5)',
         padding: 'var(--space-6)',
         textAlign: 'center',
+        position: 'relative',
       }}
     >
+      <div style={{ position: 'absolute', top: 'var(--space-4)', right: 'var(--space-4)' }}>
+        <ThemeToggle />
+      </div>
       <h1 style={{ fontSize: '2.5rem', margin: 0, color: 'var(--accent)' }}>Jayne Air</h1>
       <p style={{ color: 'var(--text-dim)', maxWidth: 340, margin: 0 }}>
         Your personal podcast radio station. Sign in to load your library.

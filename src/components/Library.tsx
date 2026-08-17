@@ -4,6 +4,7 @@ import { expandedPodcastId, libraryError, podcasts } from '../lib/store';
 import { AddPodcastModal } from './AddPodcastModal';
 import { EpisodeList } from './EpisodeList';
 import { PodcastCard } from './PodcastCard';
+import { ThemeToggle } from './ThemeToggle';
 
 interface Props {
   uid: string;
@@ -30,18 +31,20 @@ export function Library({ uid }: Props) {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 'var(--space-5)', gap: 'var(--space-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Jayne Air</h1>
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          {list.length > 0 && (
-            <button onClick={handleRefreshAll} disabled={refreshing} style={secondaryButtonStyle}>
-              {refreshing ? 'Refreshing…' : 'Refresh all'}
-            </button>
-          )}
-          <button onClick={() => setModalOpen(true)} style={primaryButtonStyle}>
-            + Add Podcast
+        <ThemeToggle />
+      </div>
+
+      <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+        {list.length > 0 && (
+          <button onClick={handleRefreshAll} disabled={refreshing} style={secondaryButtonStyle}>
+            {refreshing ? 'Refreshing…' : 'Refresh all'}
           </button>
-        </div>
+        )}
+        <button onClick={() => setModalOpen(true)} style={primaryButtonStyle}>
+          + Add Podcast
+        </button>
       </div>
 
       {libraryError.value && (

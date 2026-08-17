@@ -174,15 +174,15 @@ function formatDate(ms: number): string {
 
 function statusButtonStyle(status: Episode['status']) {
   return {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     minHeight: 'auto',
     borderRadius: '50%',
     border: '2px solid var(--accent)',
     background: status === 'listened' ? 'var(--accent)' : 'transparent',
     color: status === 'listened' ? 'var(--accent-contrast)' : 'var(--accent)',
     flexShrink: 0,
-    fontSize: '0.9rem',
+    fontSize: '1rem',
     padding: 0,
   };
 }
@@ -213,6 +213,7 @@ const smallLinkStyle = {
   color: 'var(--text-dim)',
   fontSize: '0.75rem',
   textDecoration: 'underline',
-  minHeight: 'auto',
+  minHeight: 40,
+  padding: '8px',
   flexShrink: 0,
 };

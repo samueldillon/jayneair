@@ -10,7 +10,7 @@ export function Toast() {
       style={{
         position: 'fixed',
         left: '50%',
-        bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--space-5))',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 76px)',
         transform: 'translateX(-50%)',
         background: 'var(--accent)',
         color: 'var(--accent-contrast)',
@@ -18,13 +18,13 @@ export function Toast() {
         padding: 'var(--space-3) var(--space-4)',
         display: 'flex',
         alignItems: 'center',
-        gap: 'var(--space-4)',
+        gap: 'var(--space-3)',
         boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
         zIndex: 1000,
-        maxWidth: 'calc(100vw - 32px)',
+        width: 'min(360px, calc(100vw - 32px))',
       }}
     >
-      <span>{state.message}</span>
+      <span style={{ flex: 1, fontSize: '0.9rem' }}>{state.message}</span>
       {state.onUndo && (
         <button
           onClick={() => {
@@ -39,6 +39,7 @@ export function Toast() {
             color: 'inherit',
             fontWeight: 600,
             minHeight: 'auto',
+            flexShrink: 0,
           }}
         >
           Undo
@@ -47,7 +48,16 @@ export function Toast() {
       <button
         onClick={dismissToast}
         aria-label="Dismiss"
-        style={{ background: 'transparent', border: 'none', color: 'inherit', opacity: 0.7, minHeight: 'auto', fontSize: '1.1rem', lineHeight: 1 }}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          color: 'inherit',
+          opacity: 0.7,
+          minHeight: 'auto',
+          fontSize: '1.1rem',
+          lineHeight: 1,
+          flexShrink: 0,
+        }}
       >
         ×
       </button>
