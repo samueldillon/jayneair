@@ -1,19 +1,72 @@
+import type { ComponentChildren } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
+import { authReady, currentUser, isAllowed } from './lib/auth';
+import { migrateLegacyDataIfNeeded } from './lib/migrateLegacy';
+import { subscribeToLibrary } from './lib/podcasts';
+import { showToast } from './lib/store';
+import { Library } from './components/Library';
+import { SignInScreen } from './components/SignInScreen';
+import { Toast } from './components/Toast';
+
 export function App() {
+  const ready = authReady.value;
+  const user = currentUser.value;
+  const [libraryReady, setLibraryReady] = useState(false);
+
+  useEffect(() => {
+    if (!user || !isAllowed(user)) {
+      setLibraryReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLibraryReady(false);
+
+    (async () => {
+      try {
+        const result = await migrateLegacyDataIfNeeded(user.uid);
+        if (cancelled) return;
+        if (result.migrated) {
+          showToast(`Migrated ${result.podcastCount} podcast${result.podcastCount === 1 ? '' : 's'} from the old app.`);
+        }
+      } catch (err) {
+        console.error('Legacy migration failed', err);
+      }
+      if (cancelled) return;
+      setLibraryReady(true);
+    })();
+
+    const unsubscribe = subscribeToLibrary(user.uid);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [user?.uid]);
+
+  if (!ready) {
+    return <CenteredMessage>Loading…</CenteredMessage>;
+  }
+
+  if (!user || !isAllowed(user)) {
+    return <SignInScreen />;
+  }
+
+  if (!libraryReady) {
+    return <CenteredMessage>Loading your library…</CenteredMessage>;
+  }
+
   return (
-    <main
-      style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 'var(--space-6)',
-        textAlign: 'center',
-      }}
-    >
-      <div>
-        <h1 style={{ fontSize: '2rem', margin: 0 }}>Jayne Air</h1>
-        <p style={{ color: 'var(--text-dim)' }}>Scaffold running. Library UI lands in the next slice.</p>
-      </div>
+    <>
+      <Library uid={user.uid} />
+      <Toast />
+    </>
+  );
+}
+
+function CenteredMessage({ children }: { children: ComponentChildren }) {
+  return (
+    <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)' }}>
+      {children}
     </main>
   );
 }
