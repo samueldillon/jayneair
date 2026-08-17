@@ -1,0 +1,64 @@
+/*
+  Light (default): pink background, navy accents.
+  Dark: navy background, pink accents. Toggled via [data-theme] on <html>.
+*/
+:root {
+  --pink-50: #fff5f9;
+  --pink-100: #ffe3ef;
+  --pink-200: #ffc7df;
+  --pink-500: #ff2d78;
+  --pink-600: #e6215f;
+  --navy-900: #0a0e1a;
+  --navy-800: #10182c;
+  --navy-700: #1a2540;
+  --navy-500: #2c3d66;
+
+  --bg: var(--pink-100);
+  --bg-elevated: var(--pink-50);
+  --surface: #ffffff;
+  --border: rgba(10, 14, 26, 0.12);
+  --text: var(--navy-900);
+  --text-dim: rgba(10, 14, 26, 0.6);
+  --accent: var(--navy-800);
+  --accent-contrast: #ffffff;
+  --progress-track: rgba(10, 14, 26, 0.12);
+  --progress-fill: var(--navy-700);
+  --danger: #c62839;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --touch-target: 48px;
+
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: var(--navy-900);
+  --bg-elevated: var(--navy-800);
+  --surface: var(--navy-700);
+  --border: rgba(255, 255, 255, 0.12);
+  --text: #fdf2f7;
+  --text-dim: rgba(253, 242, 247, 0.65);
+  --accent: var(--pink-500);
+  --accent-contrast: #1a0510;
+  --progress-track: rgba(255, 255, 255, 0.14);
+  --progress-fill: var(--pink-500);
+  --danger: #ff6b7a;
+
+  color-scheme: dark;
+}
+
+/*
+  Deliberately no @media (prefers-color-scheme) block: the spec calls for
+  light-by-default regardless of OS setting, with dark mode only via the
+  explicit in-app toggle (ThemeToggle, persisted to localStorage).
+*/

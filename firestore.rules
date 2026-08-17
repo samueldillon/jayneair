@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAllowedUser(uid) {
+      return request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in [
+          'samueldillon@gmail.com'
+        ];
+    }
+
+    match /users/{uid} {
+      allow read, write: if isAllowedUser(uid);
+
+      match /{document=**} {
+        allow read, write: if isAllowedUser(uid);
+      }
+    }
+  }
+}
