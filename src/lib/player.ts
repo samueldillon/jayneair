@@ -52,6 +52,7 @@ let playerDocUnsub: (() => void) | null = null;
 let disposeSrcEffect: (() => void) | null = null;
 let disposeCastMirrorEffect: (() => void) | null = null;
 let hydrated = false;
+let autoCastRequested = false;
 
 function getAudio(): HTMLAudioElement {
   if (audioEl) return audioEl;
@@ -146,17 +147,32 @@ export function initPlayer(userId: string): () => void {
 
   loadCastSdk();
   setOnCastConnectionChange((connected) => {
-    const episode = currentEpisode.value;
     if (connected) {
       getAudio().pause();
+      if (autoCastRequested) {
+        // A one-tap "play on the speaker" trigger (e.g. a home-screen
+        // shortcut) — force playback to start even if nothing was already
+        // playing in this browser tab, falling back to the front of the
+        // queue if there's no in-progress episode to resume.
+        autoCastRequested = false;
+        const episode = currentEpisode.value;
+        if (episode) castLoadMedia(buildCastRequest(episode, episode.positionSec || 0), true);
+        else advance(true);
+        return;
+      }
+      const episode = currentEpisode.value;
       if (episode) castLoadMedia(buildCastRequest(episode, positionSec.value), isPlaying.value);
-    } else if (episode) {
-      // Handing playback back to the phone/laptop at wherever the
-      // receiver left off.
-      const el = getAudio();
-      el.src = episode.audioUrl;
-      el.currentTime = positionSec.value;
-      if (isPlaying.value) el.play().catch(() => {});
+    } else {
+      autoCastRequested = false;
+      const episode = currentEpisode.value;
+      if (episode) {
+        // Handing playback back to the phone/laptop at wherever the
+        // receiver left off.
+        const el = getAudio();
+        el.src = episode.audioUrl;
+        el.currentTime = positionSec.value;
+        if (isPlaying.value) el.play().catch(() => {});
+      }
     }
   });
 
@@ -231,6 +247,23 @@ function advance(autoplay: boolean): void {
         .play()
         .catch(() => {});
     });
+  }
+}
+
+// One-tap "play on the speaker" entry point for a home-screen shortcut,
+// widget, or physical-button automation: opens the app straight to a
+// working cast session with no manual Cast-icon tap needed. Relies on the
+// Cast SDK's ORIGIN_SCOPED auto-join — once a session has been started from
+// this browser/device once, later page loads silently rejoin it — so the
+// very first use still needs one manual tap to pick the Nest speaker, but
+// every use after that is a single open-the-URL action.
+export function requestAutoCast(): void {
+  autoCastRequested = true;
+  if (castConnected.value) {
+    autoCastRequested = false;
+    const episode = currentEpisode.value;
+    if (episode) castLoadMedia(buildCastRequest(episode, episode.positionSec || 0), true);
+    else advance(true);
   }
 }
 

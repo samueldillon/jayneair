@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { authReady, currentUser, isAllowed } from './lib/auth';
 import { migrateLegacyDataIfNeeded } from './lib/migrateLegacy';
-import { initPlayer } from './lib/player';
+import { initPlayer, requestAutoCast } from './lib/player';
 import { subscribeToLibrary } from './lib/podcasts';
 import { activeTab, showToast } from './lib/store';
 import { Library } from './components/Library';
@@ -41,6 +41,13 @@ export function App() {
 
     const unsubscribeLibrary = subscribeToLibrary(user.uid);
     const disposePlayer = initPlayer(user.uid);
+
+    // One-tap "play on the speaker" entry point for a home-screen shortcut
+    // or physical-button automation: https://<app>/?autocast=1
+    if (new URLSearchParams(location.search).get('autocast') === '1') {
+      requestAutoCast();
+    }
+
     return () => {
       cancelled = true;
       unsubscribeLibrary();
