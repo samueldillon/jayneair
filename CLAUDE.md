@@ -188,15 +188,29 @@ event, since there's no real Cast session to trigger this against here.
 
 ## CORS
 
-RSS feeds don't set CORS headers for arbitrary origins, so feed XML is
-fetched through `functions/src/index.ts`'s `feedProxy` Cloud Function
-(fetches server-side, streams the body back with a permissive CORS header)
-rather than the old app's cascade of third-party public CORS proxies
-(allorigins/corsproxy.io/codetabs) — those are unreliable, rate-limited, and
-route every feed URL Jayne subscribes to through strangers' servers.
-`feedProxy` requires a valid Firebase ID token from an allow-listed account
-(mirroring `firestore.rules`), so it can't be used as an open relay by
-anyone else who finds the URL.
+RSS feeds don't set CORS headers for arbitrary origins, so feed XML has to
+be fetched server-side somehow. The intended solution is
+`functions/src/index.ts`'s `feedProxy` Cloud Function (fetches server-side,
+streams the body back with a permissive CORS header, requires a valid
+Firebase ID token from an allow-listed account so it can't be used as an
+open relay by anyone else who finds the URL) — but Cloud Functions can't
+make outbound requests to non-Google domains on Firebase's free Spark plan,
+and this deploy is staying on Spark for now rather than requiring a card on
+file (Blaze) for a birthday-deadline rollout.
+
+**Current state (temporary):** `src/lib/feedProxy.ts` instead fetches
+through a cascade of public third-party CORS proxies
+(allorigins/corsproxy.io/codetabs), same approach the old app used. This is
+a known downgrade — those services are unreliable, rate-limited, and route
+every feed URL through strangers' servers — kept only because it deploys
+on Spark today with zero new setup. `firebase.json` has the `functions`
+config and the Hosting rewrite to it removed for the same reason (`firebase
+deploy` would otherwise fail on Spark trying to deploy `feedProxy`); the
+Cloud Function's code is untouched and ready to go. To switch back once
+Blaze (or a Cloudflare Workers alternative) is set up: restore
+`feedProxy.ts` to call the Cloud Function (see git history for the
+previous implementation), and restore `firebase.json`'s `functions` array
+and hosting rewrite.
 
 Podcast **audio** files need no proxy — enclosure URLs are already public by
 the nature of RSS podcasting, so both the local `<audio>` element and the
