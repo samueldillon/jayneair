@@ -4,6 +4,19 @@ import { db } from './firebase';
 import { saveProgress } from './episodeActions';
 import { buildQueue, type QueueItem } from './queue';
 import { episodesByPodcast, podcasts } from './store';
+import {
+  castConnected,
+  castDurationSec,
+  castIsPlaying,
+  castLoadMedia,
+  castPause,
+  castPlay,
+  castPositionSec,
+  castSeek,
+  castSkipForward30,
+  loadCastSdk,
+  setOnCastConnectionChange,
+} from './cast';
 import type { Episode } from '../types';
 
 export const currentPodcastId = signal<string | null>(null);
@@ -37,6 +50,7 @@ let uid: string | null = null;
 let saveTimer: ReturnType<typeof setInterval> | null = null;
 let playerDocUnsub: (() => void) | null = null;
 let disposeSrcEffect: (() => void) | null = null;
+let disposeCastMirrorEffect: (() => void) | null = null;
 let hydrated = false;
 
 function getAudio(): HTMLAudioElement {
@@ -44,16 +58,32 @@ function getAudio(): HTMLAudioElement {
   const el = new Audio();
   el.preload = 'metadata';
   el.addEventListener('timeupdate', () => {
+    if (castConnected.value) return;
     positionSec.value = el.currentTime;
     if (Number.isFinite(el.duration)) durationSec.value = el.duration;
   });
-  el.addEventListener('play', () => (isPlaying.value = true));
-  el.addEventListener('pause', () => (isPlaying.value = false));
+  el.addEventListener('play', () => {
+    if (!castConnected.value) isPlaying.value = true;
+  });
+  el.addEventListener('pause', () => {
+    if (!castConnected.value) isPlaying.value = false;
+  });
   el.addEventListener('ended', () => {
-    advance(true);
+    if (!castConnected.value) advance(true);
   });
   audioEl = el;
   return el;
+}
+
+function buildCastRequest(episode: Episode, startPositionSec: number) {
+  const podcast = podcasts.value.find((p) => p.id === episode.podcastId);
+  return {
+    audioUrl: episode.audioUrl,
+    title: episode.title,
+    podcastTitle: podcast?.title ?? '',
+    artworkUrl: podcast?.artworkUrl ?? '',
+    startPositionSec,
+  };
 }
 
 // Wires the player to a signed-in user: hydrates the last-playing episode
@@ -83,13 +113,15 @@ export function initPlayer(userId: string): () => void {
   if (saveTimer) clearInterval(saveTimer);
   saveTimer = setInterval(persistPosition, 5000);
 
+  // Loads the current episode into whichever <audio> element is active —
+  // skipped while casting, since the Cast receiver is playing it instead
+  // and downloading it locally too would just waste bandwidth.
   disposeSrcEffect?.();
   disposeSrcEffect = effect(() => {
     const episode = currentEpisode.value;
     const el = getAudio();
-    if (!episode) {
+    if (!episode || castConnected.value) {
       el.pause();
-      el.removeAttribute('src');
       return;
     }
     if (el.src !== episode.audioUrl) {
@@ -100,6 +132,34 @@ export function initPlayer(userId: string): () => void {
     }
   });
 
+  // Mirrors Cast receiver state into the same positionSec/durationSec/
+  // isPlaying signals the local <audio> element drives, so the UI, the
+  // ~95%-listened logic, and persistPosition() all work unmodified
+  // regardless of where audio is actually playing.
+  disposeCastMirrorEffect?.();
+  disposeCastMirrorEffect = effect(() => {
+    if (!castConnected.value) return;
+    isPlaying.value = castIsPlaying.value;
+    positionSec.value = castPositionSec.value;
+    durationSec.value = castDurationSec.value || currentEpisode.value?.durationSec || 0;
+  });
+
+  loadCastSdk();
+  setOnCastConnectionChange((connected) => {
+    const episode = currentEpisode.value;
+    if (connected) {
+      getAudio().pause();
+      if (episode) castLoadMedia(buildCastRequest(episode, positionSec.value), isPlaying.value);
+    } else if (episode) {
+      // Handing playback back to the phone/laptop at wherever the
+      // receiver left off.
+      const el = getAudio();
+      el.src = episode.audioUrl;
+      el.currentTime = positionSec.value;
+      if (isPlaying.value) el.play().catch(() => {});
+    }
+  });
+
   return () => {
     playerDocUnsub?.();
     playerDocUnsub = null;
@@ -107,6 +167,8 @@ export function initPlayer(userId: string): () => void {
     saveTimer = null;
     disposeSrcEffect?.();
     disposeSrcEffect = null;
+    disposeCastMirrorEffect?.();
+    disposeCastMirrorEffect = null;
   };
 }
 
@@ -160,7 +222,10 @@ function advance(autoplay: boolean): void {
   queueCursorPodcastId.value = next.podcastId;
   persistPlayerDoc().catch(() => {});
 
-  if (autoplay) {
+  const nextEpisode = currentEpisode.value;
+  if (castConnected.value) {
+    if (nextEpisode) castLoadMedia(buildCastRequest(nextEpisode, nextEpisode.positionSec || 0), autoplay);
+  } else if (autoplay) {
     queueMicrotask(() => {
       getAudio()
         .play()
@@ -174,14 +239,19 @@ export function play(): void {
     advance(true);
     return;
   }
-  getAudio()
-    .play()
-    .catch(() => {});
+  if (castConnected.value) {
+    castPlay();
+  } else {
+    getAudio()
+      .play()
+      .catch(() => {});
+  }
   persistPlayerDoc().catch(() => {});
 }
 
 export function pause(): void {
-  getAudio().pause();
+  if (castConnected.value) castPause();
+  else getAudio().pause();
   persistPlayerDoc().catch(() => {});
   if (uid && currentEpisode.value && currentPodcastId.value) {
     saveProgress(uid, currentPodcastId.value, currentEpisode.value, Math.floor(positionSec.value)).catch(() => {});
@@ -202,11 +272,19 @@ export function playNext(): void {
 }
 
 export function skipForward30(): void {
+  if (castConnected.value) {
+    castSkipForward30();
+    return;
+  }
   const el = getAudio();
   el.currentTime = Number.isFinite(el.duration) ? Math.min(el.duration, el.currentTime + 30) : el.currentTime + 30;
 }
 
 export function seekTo(seconds: number): void {
+  if (castConnected.value) {
+    castSeek(seconds);
+    return;
+  }
   getAudio().currentTime = seconds;
   positionSec.value = seconds;
 }

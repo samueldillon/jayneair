@@ -10,6 +10,7 @@ import {
   skipForward30,
   togglePlay,
 } from '../lib/player';
+import { CastButton } from './CastButton';
 import { QueuePanel } from './QueuePanel';
 
 export function Player() {
@@ -19,6 +20,9 @@ export function Player() {
   if (!episode) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: 'var(--space-4) var(--space-4) 0' }}>
+          <CastButton />
+        </div>
         <div
           style={{
             flex: 1,
@@ -45,6 +49,9 @@ export function Player() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: 'var(--space-4) var(--space-4) 0' }}>
+        <CastButton />
+      </div>
       <div
         style={{
           flex: 1,
