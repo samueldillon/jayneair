@@ -115,7 +115,7 @@ export function Player() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-5)' }}>
           <button onClick={skipForward30} aria-label="Skip forward 30 seconds" style={secondaryControlStyle}>
-            <Skip30Icon />
+            <span style={{ fontSize: '0.95rem', fontWeight: 700 }}>+30</span>
           </button>
           <button onClick={togglePlay} aria-label={isPlaying.value ? 'Pause' : 'Play'} style={bigPlayButtonStyle}>
             {isPlaying.value ? <PauseIcon /> : <PlayIcon />}
@@ -188,17 +188,6 @@ function NextIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
       <path d="M6 5v14l9-7zM17 5h2v14h-2z" />
-    </svg>
-  );
-}
-function Skip30Icon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M20 12a8 8 0 1 0 -2.6 5.9" strokeLinecap="round" />
-      <path d="M21 8v4h-4" strokeLinecap="round" strokeLinejoin="round" />
-      <text x="12" y="15.5" fontSize="7.5" fill="currentColor" stroke="none" textAnchor="middle">
-        30
-      </text>
     </svg>
   );
 }

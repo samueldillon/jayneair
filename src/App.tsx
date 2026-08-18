@@ -69,8 +69,8 @@ export function App() {
 
   return (
     <>
-      {activeTab.value === 'player' ? <Player /> : <Library uid={user.uid} />}
       <TabBar />
+      {activeTab.value === 'player' ? <Player /> : <Library uid={user.uid} />}
       <Toast />
     </>
   );
