@@ -189,28 +189,34 @@ event, since there's no real Cast session to trigger this against here.
 ## CORS
 
 RSS feeds don't set CORS headers for arbitrary origins, so feed XML has to
-be fetched server-side somehow. The intended solution is
-`functions/src/index.ts`'s `feedProxy` Cloud Function (fetches server-side,
-streams the body back with a permissive CORS header, requires a valid
-Firebase ID token from an allow-listed account so it can't be used as an
-open relay by anyone else who finds the URL) — but Cloud Functions can't
-make outbound requests to non-Google domains on Firebase's free Spark plan,
-and this deploy is staying on Spark for now rather than requiring a card on
-file (Blaze) for a birthday-deadline rollout.
+be fetched server-side somehow. Three approaches were tried, in order:
 
-**Current state (temporary):** `src/lib/feedProxy.ts` instead fetches
-through a cascade of public third-party CORS proxies
-(allorigins/corsproxy.io/codetabs), same approach the old app used. This is
-a known downgrade — those services are unreliable, rate-limited, and route
-every feed URL through strangers' servers — kept only because it deploys
-on Spark today with zero new setup. `firebase.json` has the `functions`
-config and the Hosting rewrite to it removed for the same reason (`firebase
-deploy` would otherwise fail on Spark trying to deploy `feedProxy`); the
-Cloud Function's code is untouched and ready to go. To switch back once
-Blaze (or a Cloudflare Workers alternative) is set up: restore
-`feedProxy.ts` to call the Cloud Function (see git history for the
-previous implementation), and restore `firebase.json`'s `functions` array
-and hosting rewrite.
+1. **`functions/src/index.ts`'s `feedProxy` Cloud Function** — the original
+   plan (fetches server-side, streams the body back with permissive CORS,
+   requires a Firebase ID token from an allow-listed account). Cloud
+   Functions can't make outbound requests to non-Google domains on
+   Firebase's free **Spark** plan, though, and this deploy needed to stay
+   on Spark rather than link a card for a birthday-deadline rollout. The
+   function's code is untouched and ready to redeploy if the project ever
+   moves to Blaze — just restore `firebase.json`'s `functions` array and
+   hosting rewrite (see git history) and point `feedProxy.ts` back at it.
+2. **A cascade of public third-party CORS proxies**
+   (allorigins/corsproxy.io/codetabs), same approach the old app used —
+   tried briefly as a zero-setup stopgap. Failed in real testing: two of
+   the three timed out and the third returned a flat 403. Confirmed this
+   category of service is exactly as unreliable as expected going in.
+3. **A standalone Cloudflare Worker (`cloudflare-worker/`)** — what's
+   actually deployed now. Same server-side-fetch-with-CORS-headers logic as
+   the Cloud Function, just hosted on Cloudflare's free tier instead (no
+   card required, unlike Blaze). `src/lib/feedProxy.ts` calls it via the
+   `VITE_FEED_PROXY_URL` env var. **Deliberately left open, no auth check**
+   — Workers don't have the Firebase Admin SDK available to verify ID
+   tokens the way the Cloud Function did, so anyone who finds the Worker
+   URL could technically use it as an open relay. That matches the same
+   open-access posture the third-party proxies (option 2) already had, and
+   was judged an acceptable tradeoff for a single-user app rather than
+   building JWT verification from scratch in the Workers runtime — worth
+   revisiting if it's ever abused.
 
 Podcast **audio** files need no proxy — enclosure URLs are already public by
 the nature of RSS podcasting, so both the local `<audio>` element and the
@@ -218,6 +224,24 @@ Cast receiver fetch them directly.
 
 The iTunes Search API (`itunes.apple.com/search`) already sends permissive
 CORS headers and is called directly from the browser; no proxy involved.
+
+## Deploying
+
+Two independent deploys, since the Worker lives outside Firebase entirely:
+
+```
+# Main app (Hosting + Firestore rules/indexes — no Cloud Functions on Spark)
+npm run build
+firebase deploy
+
+# Feed-fetching Worker (only needed again if its code changes)
+cd cloudflare-worker
+npx wrangler login      # once
+npx wrangler deploy
+```
+
+`wrangler deploy` prints the Worker's URL (`https://jayneair-feed-proxy.<subdomain>.workers.dev`)
+— that goes in `.env` as `VITE_FEED_PROXY_URL` before building the main app.
 
 ## Bulk operations (`src/lib/episodeActions.ts`)
 

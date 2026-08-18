@@ -1,50 +1,19 @@
-// STOPGAP: fetches feeds through public third-party CORS proxies instead of
-// the feedProxy Cloud Function in functions/src/index.ts. That function
-// needs the Blaze (pay-as-you-go) plan — Cloud Functions on the free Spark
-// plan can't make outbound requests to non-Google domains at all — and this
-// deploy is staying on Spark for now. This is exactly the kind of
-// third-party-proxy-cascade approach CLAUDE.md's CORS section originally
-// argued against (unreliable, rate-limited, routes every feed URL through
-// someone else's server) — worth switching back to feedProxy.ts's Cloud
-// Function once Blaze (or a Cloudflare Workers alternative) is set up;
-// see git history for the previous implementation.
-interface ProxyDef {
-  name: string;
-  build: (url: string) => string;
-}
-
-const PROXIES: ProxyDef[] = [
-  { name: 'allorigins', build: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
-  { name: 'codetabs', build: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` },
-  { name: 'corsproxy.io', build: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
-];
+// Fetches a feed URL through the standalone Cloudflare Worker in
+// cloudflare-worker/ (deployed separately — see its README/CLAUDE.md's CORS
+// section for setup), which solves the browser CORS problem by fetching
+// server-side. Replaces both the original feedProxy Cloud Function (needs
+// Firebase's paid Blaze plan) and a brief stint using public third-party
+// CORS proxies, which proved unreliable in real testing.
+const FEED_PROXY_URL = import.meta.env.VITE_FEED_PROXY_URL;
 
 export async function fetchFeedXml(feedUrl: string): Promise<string> {
-  const failures: string[] = [];
-
-  for (const proxy of PROXIES) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
-    try {
-      const res = await fetch(proxy.build(feedUrl), { signal: controller.signal });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
-      if (!text.trim()) throw new Error('empty response');
-      return text;
-    } catch (err) {
-      // A CORS rejection (the proxy didn't send back permissive headers) and
-      // a genuine network failure both surface as the same opaque
-      // "Failed to fetch" TypeError — browsers deliberately hide the real
-      // reason from JS. Naming which proxy + attempt failed here is the
-      // most we can report; the real detail only shows up in the browser's
-      // own DevTools Network tab.
-      const reason = err instanceof Error ? err.message : String(err);
-      failures.push(`${proxy.name}: ${reason}`);
-      console.error(`[feedProxy] ${proxy.name} failed for ${feedUrl}:`, err);
-    } finally {
-      clearTimeout(timeout);
-    }
+  if (!FEED_PROXY_URL) {
+    throw new Error('VITE_FEED_PROXY_URL is not set — see cloudflare-worker/ and CLAUDE.md');
   }
 
-  throw new Error(`Could not fetch feed — tried ${PROXIES.length} proxies, all failed (${failures.join('; ')})`);
+  const res = await fetch(`${FEED_PROXY_URL}?url=${encodeURIComponent(feedUrl)}`);
+  if (!res.ok) {
+    throw new Error(`Could not fetch feed (${res.status}): ${await res.text()}`);
+  }
+  return res.text();
 }
