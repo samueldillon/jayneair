@@ -194,9 +194,9 @@ function NextIcon() {
 function Skip30Icon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 12a8 8 0 1 1 2.6 5.9" strokeLinecap="round" />
-      <path d="M3 8v4h4" strokeLinecap="round" strokeLinejoin="round" />
-      <text x="12" y="16" fontSize="7" fill="currentColor" stroke="none" textAnchor="middle">
+      <path d="M20 12a8 8 0 1 0 -2.6 5.9" strokeLinecap="round" />
+      <path d="M21 8v4h-4" strokeLinecap="round" strokeLinejoin="round" />
+      <text x="12" y="15.5" fontSize="7.5" fill="currentColor" stroke="none" textAnchor="middle">
         30
       </text>
     </svg>
