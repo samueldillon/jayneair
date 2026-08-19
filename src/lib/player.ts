@@ -273,23 +273,33 @@ function advance(autoplay: boolean): void {
 // meant currentEpisode.value was still null, so it fell through to
 // "nothing was playing" and restarted from 0 instead of resuming. Waiting
 // for player/state to have a target *and* that episode to actually be
-// loaded avoids the race; a timeout falls back to the front of the queue
-// so this can't hang forever if something never arrives.
+// loaded avoids the race.
+//
+// A 4s deadline flips castAutoJoinTimedOut so the effect below stops
+// waiting on Cast specifically and instead falls back to local playback —
+// it used to only ever act once castConnected became true, which meant a
+// launch where ORIGIN_SCOPED auto-rejoin never fires at all (as opposed to
+// firing late) silently did nothing: no cast, no local audio, just a
+// paused screen. That's exactly what a launcher like MacroDroid hits when
+// the SDK's auto-join doesn't kick in for a page opened outside Chrome's
+// own navigation. The effect still waits for episode data even past the
+// deadline (so it never wrongly treats "still hydrating" as "nothing was
+// playing"), and still casts properly instead of falling back to local
+// whenever auto-rejoin manages to connect before the deadline.
+const castAutoJoinTimedOut = signal(false);
+
 export function requestAutoCast(): void {
   autoCastRequested = true;
+  castAutoJoinTimedOut.value = false;
 
   disposeAutoCastEffect?.();
   const timeoutId = setTimeout(() => {
-    if (!autoCastRequested) return;
-    autoCastRequested = false;
-    disposeAutoCastEffect?.();
-    disposeAutoCastEffect = null;
-    if (castConnected.value) advance(true);
-  }, 8000);
+    if (autoCastRequested) castAutoJoinTimedOut.value = true;
+  }, 4000);
 
   disposeAutoCastEffect = effect(() => {
     if (!autoCastRequested) return;
-    if (!castConnected.value) return;
+    if (!castConnected.value && !castAutoJoinTimedOut.value) return;
     // player/state named a target episode, but its data (from a separate
     // Firestore subscription) hasn't arrived yet — wait for it rather than
     // treating this as "nothing was playing."
@@ -301,8 +311,26 @@ export function requestAutoCast(): void {
     disposeAutoCastEffect = null;
 
     const episode = currentEpisode.value;
-    if (episode) castLoadMedia(buildCastRequest(episode, episode.positionSec || 0), true);
-    else advance(true);
+    if (castConnected.value) {
+      if (episode) castLoadMedia(buildCastRequest(episode, episode.positionSec || 0), true);
+      else advance(true);
+      return;
+    }
+
+    // Cast never connected in time — fall back to local playback rather
+    // than leaving the screen paused with nothing happening.
+    if (episode) {
+      const el = getAudio();
+      el.src = episode.audioUrl;
+      el.currentTime = episode.positionSec || 0;
+      positionSec.value = episode.positionSec || 0;
+      durationSec.value = episode.durationSec || 0;
+      isPlaying.value = true;
+      el.play().catch(() => {});
+      persistPlayerDoc().catch(() => {});
+    } else {
+      advance(true);
+    }
   });
 }
 

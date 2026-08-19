@@ -169,22 +169,40 @@ actual cast-and-control path needs a hands-on check in real desktop Chrome.
 ### One-tap auto-cast (`?autocast=1`)
 
 Opening the app with this query param calls `requestAutoCast()`, which waits
-for a Cast session (including a silent rejoin of a previously-started one —
-the SDK's `ORIGIN_SCOPED` auto-join needs no user gesture for that) and then
-either resumes whatever's already `currentEpisode` or, if nothing was
-playing yet, starts the front of the queue. It's the same
-resume-vs-advance logic manual playback uses, not a separate path — it just
-forces `autoplay: true` and skips waiting for a manual tap on the Cast icon.
+(up to a 4s deadline) for a Cast session — including a silent rejoin of a
+previously-started one via the SDK's `ORIGIN_SCOPED` auto-join, which needs
+no user gesture — and then either resumes whatever's already
+`currentEpisode` or, if nothing was playing yet, starts the front of the
+queue. It's the same resume-vs-advance logic manual playback uses, not a
+separate path — it just forces `autoplay: true` and skips waiting for a
+manual tap on the Cast icon.
+
+**If the Cast session never connects before the deadline, it falls back to
+local playback** on the device that opened the URL, rather than doing
+nothing. An earlier version only ever acted once `castConnected` became
+true, so a launch where auto-rejoin doesn't fire at all — as opposed to
+firing a bit late — silently did nothing: no cast, no local audio, just a
+paused screen. That's precisely what happened when a MacroDroid-driven
+open of `?autocast=1` (physical Bluetooth-clicker trigger) reached the page
+outside Chrome's own top-level navigation and the SDK's auto-join didn't
+kick in. The fix still waits for episode data to hydrate from Firestore
+even past the deadline (so a slow-but-arriving `currentEpisode` is never
+mistaken for "nothing was playing" and wrongly skipped forward), and it
+still casts normally instead of falling back whenever auto-rejoin *does*
+connect in time.
 
 This exists to back a physical-button-style trigger: since Chromecast's
 LOAD command has to come from a device on the same LAN (there's no cloud
 API for it), and iOS can't cast at all, the realistic setup is an Android
-phone/tablet with a home-screen shortcut or automation (e.g. Tasker off a
-Bluetooth button) that opens `https://<app>/?autocast=1` in Chrome. The
-very first use still needs one manual tap to pick the Nest speaker as the
-Cast target; every use after that is just opening the URL. Verified the
-branching (resume vs. advance-to-front) against a simulated connection
-event, since there's no real Cast session to trigger this against here.
+phone/tablet with a home-screen shortcut or automation (e.g. MacroDroid off
+a Bluetooth shutter-remote button, mapped to its Volume Up keypress) that
+opens `https://<app>/?autocast=1` in Chrome. The very first use still needs
+one manual tap to pick the Nest speaker as the Cast target; every use after
+that either casts automatically or, if auto-rejoin doesn't fire, plays
+locally on the triggering device instead. Verified the branching (cast vs.
+local-fallback vs. resume-vs-advance) by tracing all four cases against the
+signal-driven effect in `player.ts`; there's no real Cast device or a
+MacroDroid-driven launch reachable from this sandbox to test end-to-end.
 
 ## CORS
 
