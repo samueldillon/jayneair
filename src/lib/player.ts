@@ -3,7 +3,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { saveProgress } from './episodeActions';
 import { buildQueue, type QueueItem } from './queue';
-import { episodesByPodcast, podcasts } from './store';
+import { episodesByPodcast, podcasts, showToast } from './store';
 import {
   castConnected,
   castDurationSec,
@@ -325,8 +325,17 @@ export function requestAutoCast(): void {
       el.currentTime = episode.positionSec || 0;
       positionSec.value = episode.positionSec || 0;
       durationSec.value = episode.durationSec || 0;
-      isPlaying.value = true;
-      el.play().catch(() => {});
+      // Don't set isPlaying optimistically — the audio element's own
+      // 'play'/'pause' listeners (wired in getAudio()) are the single
+      // source of truth for that signal. A browser opened fresh via an
+      // external launcher (MacroDroid/Automate, not a real tap in the
+      // page) can have Chrome silently block this play() call under its
+      // autoplay policy; setting isPlaying true regardless made the UI
+      // show a Pause icon over audio that was never actually playing,
+      // with no visible sign anything had gone wrong.
+      el.play().catch(() => {
+        showToast('Autoplay was blocked — tap play to resume.');
+      });
       persistPlayerDoc().catch(() => {});
     } else {
       advance(true);
