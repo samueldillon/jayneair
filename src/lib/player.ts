@@ -53,6 +53,7 @@ let disposeSrcEffect: (() => void) | null = null;
 let disposeCastMirrorEffect: (() => void) | null = null;
 let hydrated = false;
 let autoCastRequested = false;
+let disposeAutoCastEffect: (() => void) | null = null;
 
 function getAudio(): HTMLAudioElement {
   if (audioEl) return audioEl;
@@ -149,21 +150,26 @@ export function initPlayer(userId: string): () => void {
   setOnCastConnectionChange((connected) => {
     if (connected) {
       getAudio().pause();
-      if (autoCastRequested) {
-        // A one-tap "play on the speaker" trigger (e.g. a home-screen
-        // shortcut) — force playback to start even if nothing was already
-        // playing in this browser tab, falling back to the front of the
-        // queue if there's no in-progress episode to resume.
-        autoCastRequested = false;
+      // requestAutoCast() (if any) handles its own load via a reactive
+      // effect below, since it needs to wait for episode data that may not
+      // have arrived from Firestore yet on a fresh page load. This branch
+      // only covers a silent reconnect the user didn't explicitly ask for
+      // right now (e.g. just opening the app while a session is still
+      // joinable). Position comes from the episode's saved positionSec, not
+      // the local positionSec signal — that signal only gets hydrated by
+      // the src-loading effect below when NOT already cast-connected, which
+      // a fast auto-rejoin can easily race ahead of, leaving it stuck at 0.
+      if (!autoCastRequested) {
         const episode = currentEpisode.value;
-        if (episode) castLoadMedia(buildCastRequest(episode, episode.positionSec || 0), true);
-        else advance(true);
-        return;
+        if (episode) {
+          const resumeAt = Math.max(positionSec.value, episode.positionSec || 0);
+          castLoadMedia(buildCastRequest(episode, resumeAt), isPlaying.value);
+        }
       }
-      const episode = currentEpisode.value;
-      if (episode) castLoadMedia(buildCastRequest(episode, positionSec.value), isPlaying.value);
     } else {
       autoCastRequested = false;
+      disposeAutoCastEffect?.();
+      disposeAutoCastEffect = null;
       const episode = currentEpisode.value;
       if (episode) {
         // Handing playback back to the phone/laptop at wherever the
@@ -185,6 +191,9 @@ export function initPlayer(userId: string): () => void {
     disposeSrcEffect = null;
     disposeCastMirrorEffect?.();
     disposeCastMirrorEffect = null;
+    disposeAutoCastEffect?.();
+    disposeAutoCastEffect = null;
+    autoCastRequested = false;
   };
 }
 
@@ -257,14 +266,44 @@ function advance(autoplay: boolean): void {
 // this browser/device once, later page loads silently rejoin it — so the
 // very first use still needs one manual tap to pick the Nest speaker, but
 // every use after that is a single open-the-URL action.
+//
+// This waits on a reactive effect rather than checking once, because on a
+// fresh page load the Cast auto-rejoin can finish *before* the episode's
+// Firestore data has arrived — acting immediately in that gap previously
+// meant currentEpisode.value was still null, so it fell through to
+// "nothing was playing" and restarted from 0 instead of resuming. Waiting
+// for player/state to have a target *and* that episode to actually be
+// loaded avoids the race; a timeout falls back to the front of the queue
+// so this can't hang forever if something never arrives.
 export function requestAutoCast(): void {
   autoCastRequested = true;
-  if (castConnected.value) {
+
+  disposeAutoCastEffect?.();
+  const timeoutId = setTimeout(() => {
+    if (!autoCastRequested) return;
     autoCastRequested = false;
+    disposeAutoCastEffect?.();
+    disposeAutoCastEffect = null;
+    if (castConnected.value) advance(true);
+  }, 8000);
+
+  disposeAutoCastEffect = effect(() => {
+    if (!autoCastRequested) return;
+    if (!castConnected.value) return;
+    // player/state named a target episode, but its data (from a separate
+    // Firestore subscription) hasn't arrived yet — wait for it rather than
+    // treating this as "nothing was playing."
+    if (currentEpisodeId.value && !currentEpisode.value) return;
+
+    autoCastRequested = false;
+    clearTimeout(timeoutId);
+    disposeAutoCastEffect?.();
+    disposeAutoCastEffect = null;
+
     const episode = currentEpisode.value;
     if (episode) castLoadMedia(buildCastRequest(episode, episode.positionSec || 0), true);
     else advance(true);
-  }
+  });
 }
 
 export function play(): void {
