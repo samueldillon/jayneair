@@ -169,13 +169,18 @@ actual cast-and-control path needs a hands-on check in real desktop Chrome.
 ### One-tap auto-cast (`?autocast=1`)
 
 Opening the app with this query param calls `requestAutoCast()`, which waits
-(up to a 4s deadline) for a Cast session — including a silent rejoin of a
-previously-started one via the SDK's `ORIGIN_SCOPED` auto-join, which needs
-no user gesture — and then either resumes whatever's already
+(up to a 10s deadline — see below) for a Cast session — including a silent
+rejoin of a previously-started one via the SDK's `ORIGIN_SCOPED` auto-join,
+which needs no user gesture — and then either resumes whatever's already
 `currentEpisode` or, if nothing was playing yet, starts the front of the
 queue. It's the same resume-vs-advance logic manual playback uses, not a
 separate path — it just forces `autoplay: true` and skips waiting for a
-manual tap on the Cast icon.
+manual tap on the Cast icon. `autoCastPending` (a signal exported from
+`player.ts`) is true for the whole wait, and `Player.tsx` shows a
+"Connecting to speaker…" line while it is — a launch via an external
+automation app previously looked identical (frozen paused screen) whether
+it was about to succeed or had already silently failed; now the wait itself
+is visible.
 
 **If the Cast session never connects before the deadline, it falls back to
 local playback** on the device that opened the URL, rather than doing
@@ -191,11 +196,40 @@ mistaken for "nothing was playing" and wrongly skipped forward), and it
 still casts normally instead of falling back whenever auto-rejoin *does*
 connect in time.
 
+**The deadline is 10s, not the original 4s.** A cold page load via an
+external launcher (MacroDroid, then LlamaLab Automate after switching off
+MacroDroid's paywalled trial) has to fetch and initialize `cast_sender.js`
+from scratch before `ORIGIN_SCOPED` auto-join can even start negotiating
+with the receiver — real mobile networks make that meaningfully slower
+than a warm desktop test suggests. 4s was cutting the wait off right as a
+genuine reconnect might have been about to land, forcing local playback
+even in cases where Cast would have worked given a bit more patience.
+Safe to make generous now that the wait is visible (`autoCastPending`)
+instead of a silent stall.
+
+**The local-playback fallback itself doesn't optimistically claim
+"playing."** It used to set `isPlaying.value = true` before `el.play()`
+had resolved, then swallow a rejected promise silently — on a tab opened
+externally (not from a real tap in the page), Chrome's autoplay policy can
+block that `play()` call, and the UI kept showing a Pause icon over audio
+that was never actually playing, frozen at the resume position with no
+visible sign anything had failed. Now `isPlaying` is left entirely to the
+audio element's own `play`/`pause` event listeners (already the source of
+truth everywhere else in this file), and a blocked autoplay surfaces a
+toast ("Autoplay was blocked — tap play to resume") instead of lying about
+playback state. The standard fix for the underlying autoplay block itself
+is "Add to Home Screen" on the target device — Chrome is more lenient
+about autoplay for installed web apps than for a page opened fresh in a
+regular tab — plus normal repeated manual use building up the site's
+engagement history, which Chrome's autoplay heuristic also weighs.
+
 This exists to back a physical-button-style trigger: since Chromecast's
 LOAD command has to come from a device on the same LAN (there's no cloud
 API for it), and iOS can't cast at all, the realistic setup is an Android
-phone/tablet with a home-screen shortcut or automation (e.g. MacroDroid off
-a Bluetooth shutter-remote button, mapped to its Volume Up keypress) that
+phone/tablet with a home-screen shortcut or automation app (LlamaLab
+Automate, free — MacroDroid was tried first but its needed triggers turned
+out to be behind a paid subscription after a one-week trial) off a
+Bluetooth shutter-remote button mapped to its Volume Up keypress, that
 opens `https://<app>/?autocast=1` in Chrome. The very first use still needs
 one manual tap to pick the Nest speaker as the Cast target; every use after
 that either casts automatically or, if auto-rejoin doesn't fire, plays

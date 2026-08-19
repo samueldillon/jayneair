@@ -1,4 +1,5 @@
 import {
+  autoCastPending,
   currentEpisode,
   currentPodcast,
   durationSec,
@@ -81,6 +82,11 @@ export function Player() {
         )}
 
         <div style={{ textAlign: 'center', maxWidth: 340 }}>
+          {autoCastPending.value && (
+            <div style={{ color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 600, marginBottom: 6 }}>
+              Connecting to speaker…
+            </div>
+          )}
           <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{episode.title}</div>
           <div style={{ color: 'var(--text-dim)', fontSize: '0.9rem', marginTop: 4 }}>{podcast?.title}</div>
         </div>

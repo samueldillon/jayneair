@@ -168,6 +168,7 @@ export function initPlayer(userId: string): () => void {
       }
     } else {
       autoCastRequested = false;
+      autoCastPending.value = false;
       disposeAutoCastEffect?.();
       disposeAutoCastEffect = null;
       const episode = currentEpisode.value;
@@ -194,6 +195,7 @@ export function initPlayer(userId: string): () => void {
     disposeAutoCastEffect?.();
     disposeAutoCastEffect = null;
     autoCastRequested = false;
+    autoCastPending.value = false;
   };
 }
 
@@ -275,27 +277,39 @@ function advance(autoplay: boolean): void {
 // for player/state to have a target *and* that episode to actually be
 // loaded avoids the race.
 //
-// A 4s deadline flips castAutoJoinTimedOut so the effect below stops
-// waiting on Cast specifically and instead falls back to local playback —
-// it used to only ever act once castConnected became true, which meant a
-// launch where ORIGIN_SCOPED auto-rejoin never fires at all (as opposed to
-// firing late) silently did nothing: no cast, no local audio, just a
-// paused screen. That's exactly what a launcher like MacroDroid hits when
+// A deadline flips castAutoJoinTimedOut so the effect below stops waiting
+// on Cast specifically and instead falls back to local playback — it used
+// to only ever act once castConnected became true, which meant a launch
+// where ORIGIN_SCOPED auto-rejoin never fires at all (as opposed to firing
+// late) silently did nothing: no cast, no local audio, just a paused
+// screen. That's exactly what a launcher like MacroDroid/Automate hits when
 // the SDK's auto-join doesn't kick in for a page opened outside Chrome's
 // own navigation. The effect still waits for episode data even past the
 // deadline (so it never wrongly treats "still hydrating" as "nothing was
 // playing"), and still casts properly instead of falling back to local
 // whenever auto-rejoin manages to connect before the deadline.
+//
+// 10s, not 4s: a cold page load via an external launcher has to fetch and
+// initialize cast_sender.js from scratch (no warm cache the way a manual
+// reopen of the tab might have) before ORIGIN_SCOPED auto-join can even
+// start negotiating with the receiver, and real mobile networks make that
+// slower than it looks in a warm desktop test. A too-short deadline gives
+// up right as a genuine reconnect was about to land, forcing local
+// playback even though Cast would have worked with a bit more patience.
+// This is safe to make generous now that the wait is visible (see
+// autoCastPending below) instead of a silent stall.
 const castAutoJoinTimedOut = signal(false);
+export const autoCastPending = signal(false);
 
 export function requestAutoCast(): void {
   autoCastRequested = true;
   castAutoJoinTimedOut.value = false;
+  autoCastPending.value = true;
 
   disposeAutoCastEffect?.();
   const timeoutId = setTimeout(() => {
     if (autoCastRequested) castAutoJoinTimedOut.value = true;
-  }, 4000);
+  }, 10000);
 
   disposeAutoCastEffect = effect(() => {
     if (!autoCastRequested) return;
@@ -306,6 +320,7 @@ export function requestAutoCast(): void {
     if (currentEpisodeId.value && !currentEpisode.value) return;
 
     autoCastRequested = false;
+    autoCastPending.value = false;
     clearTimeout(timeoutId);
     disposeAutoCastEffect?.();
     disposeAutoCastEffect = null;
