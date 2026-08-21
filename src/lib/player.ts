@@ -159,7 +159,17 @@ export function initPlayer(userId: string): () => void {
   // the page with ?autocast=1 on every press.
   setMediaSessionHandlers({
     onPlay: play,
-    onPause: pause,
+    onPause: () => {
+      // A hardware Play/Pause key is a single *toggle*, and Chrome decides
+      // which of these two handlers to call from its own notion of whether
+      // the page is playing — which is not always ours (a silently looping
+      // keeper track can read as "playing" to Chrome while the cast
+      // receiver is actually paused). If the two have drifted apart,
+      // honour what the button obviously meant instead of re-issuing a
+      // pause that does nothing and leaves the clicker looking dead.
+      if (isPlaying.value) pause();
+      else play();
+    },
     onNext: playNext,
     onSkipForward: skipForward30,
     onSeekTo: seekTo,
@@ -179,10 +189,17 @@ export function initPlayer(userId: string): () => void {
     // against this, so it has to stay accurate or one press does nothing.
     setMediaSessionPlaybackState(isPlaying.value ? 'playing' : episode ? 'paused' : 'none');
 
-    // Hold the session open whenever the real <audio> element isn't — while
-    // casting it's paused on purpose, and Chrome drops the media session
-    // (taking the media keys with it) if nothing is playing locally.
-    setSilentKeeperActive(castConnected.value || !isPlaying.value);
+    // Hold the session open while casting *and playing* — that's the one
+    // state where the receiver is producing audio but the local <audio>
+    // element is deliberately paused, so Chrome would otherwise see a
+    // silent page and drop the media session (taking the media keys with
+    // it). Deliberately NOT run while paused: a playing keeper makes
+    // Chrome believe the page is playing, so it resolves the next
+    // Play/Pause key press as another *pause* — which is why the clicker
+    // could stop playback but never restart it. Chrome keeps a media
+    // session registered across a pause on its own, so nothing is needed
+    // to hold it open there.
+    setSilentKeeperActive(castConnected.value && isPlaying.value);
   });
 
   loadCastSdk();

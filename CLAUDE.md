@@ -265,17 +265,26 @@ Android media session while a page is genuinely playing audio, and drops it
 `<audio>` element is paused deliberately — so without intervention the
 clicker would go dead precisely when casting starts, which is the only state
 it's meant to be used in. `setSilentKeeperActive()` therefore loops a track
-of digital silence whenever the real element isn't playing
-(`castConnected.value || !isPlaying.value`). It's generated at runtime
-(10s of 8-bit 8kHz mono zero-fill, ~80KB, as a Blob URL) rather than shipped
-as a data URI, so it costs nothing in the bundle. 10s and not shorter
-because Chrome ignores very short clips for media-session purposes.
+of digital silence, generated at runtime (10s of 8-bit 8kHz mono zero-fill,
+~80KB, as a Blob URL) rather than shipped as a data URI so it costs nothing
+in the bundle. 10s and not shorter because Chrome ignores very short clips
+for media-session purposes.
 
-`playbackState` has to be kept accurate because Play/Pause is a *toggle* key
-resolved against it — a stale value means one press appears to do nothing.
-`mediaSession.ts` is a passive sink (handlers and values pushed at the
-platform); `player.ts` owns the playback logic and drives it through one
-effect, so the two don't import each other in a cycle.
+**The keeper runs only while `castConnected && isPlaying`** — not whenever
+the local element is idle, which is what it did first. A keeper playing
+during a *pause* makes Chrome believe the page is still playing, so it
+resolves the next Play/Pause key press as another **pause**: on a real
+Pixel this showed up as a clicker that could stop playback but never
+restart it. Chrome keeps a media session registered across a pause by
+itself, so there's nothing to hold open in that state anyway.
+
+`playbackState` is kept accurate for the same reason — Play/Pause is a
+*toggle* resolved against it. Belt and braces, the `pause` action handler
+also checks our own `isPlaying` and plays instead if the two have drifted
+apart, so a state mismatch can never leave the physical button looking
+dead. `mediaSession.ts` is a passive sink (handlers and values pushed at
+the platform); `player.ts` owns the playback logic and drives it through
+one effect, so the two don't import each other in a cycle.
 
 Verified here: the generated WAV parses as a valid 10s mono silent file, and
 the wiring type-checks and builds. **Not verified end-to-end** — this
