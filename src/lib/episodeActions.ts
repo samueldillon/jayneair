@@ -122,6 +122,27 @@ export async function markOlderAsListened(uid: string, podcastId: string, thresh
   );
 }
 
+// Forces an episode to 'listened' regardless of how far through it is.
+// Used by the player's "play next" button: pressing Next means "I'm done
+// with this one", so it shouldn't come back around in the rotation the way
+// it would if we just saved its position and let the ~95% rule decide.
+// Skipping an item from the *queue panel* is deliberately different — that
+// stays session-local and never touches Firestore (see `skipQueueItem`).
+export async function markListened(
+  uid: string,
+  podcastId: string,
+  episode: Episode,
+  positionSec?: number,
+): Promise<void> {
+  if (episode.status === 'listened') return;
+  const change: StatusChange = {
+    episodeId: episode.id,
+    status: 'listened',
+    positionSec: positionSec ?? episode.positionSec ?? episode.durationSec ?? 0,
+  };
+  await applyStatusChanges(uid, podcastId, [change], 'Marked as listened');
+}
+
 // Used by the player (next slice) on timeupdate/pause to save scrub
 // position and auto-mark listened at ~95% — no toast, this isn't a
 // user-initiated bulk action.

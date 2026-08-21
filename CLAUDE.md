@@ -93,11 +93,25 @@ episode is currently playing — it's technically still `unlistened`/
 exclusion the queue preview would show the now-playing episode as its own
 "up next" once the rotation cycled back around to that show.
 
-**Skipping** (the queue panel's per-item "Skip" button) only adds the episode
-to a session-local `Set` that `buildQueue` filters out — it never touches
-Firestore. Reload the app and a skipped episode is back in normal rotation.
-This matches the spec's "skip without marking listened": it's a temporary
-reprioritization for this listening session, not a permanent status change.
+**Two different "skips" that deliberately behave differently:**
+
+- **The queue panel's per-item "Skip"** only adds the episode to a
+  session-local `Set` that `buildQueue` filters out — it never touches
+  Firestore. Reload the app and a skipped episode is back in normal
+  rotation. This matches the spec's "skip without marking listened": a
+  temporary reprioritization for this listening session, not a status
+  change.
+- **The player's "play next" button** (and the media session's next-track
+  action) *does* mark the outgoing episode `listened`, via
+  `markListened()`. Pressing Next on the thing you're currently hearing
+  means you're done with it, and leaving it unlistened made it resurface in
+  the rotation later — which read as the button not having worked. An Undo
+  toast covers a mis-press.
+
+Only a deliberate Next press marks listened. Everywhere else `advance()` is
+reached automatically — an episode ending, an auto-cast starting — the
+outgoing episode keeps whatever status its saved position implies (the ~95%
+rule), so nothing gets silently marked listened without being played.
 
 ## Player (`src/lib/player.ts`)
 

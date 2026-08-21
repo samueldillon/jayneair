@@ -1,7 +1,7 @@
 import { computed, effect, signal } from '@preact/signals';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { saveProgress } from './episodeActions';
+import { markListened, saveProgress } from './episodeActions';
 import { buildQueue, type QueueItem } from './queue';
 import { episodesByPodcast, podcasts, showToast } from './store';
 import {
@@ -283,16 +283,25 @@ function persistPosition(): void {
 }
 
 // Local state (and, if autoplay, the audio element) switch to the next
-// episode immediately — saving the outgoing episode's position and writing
-// the player/state doc happen in the background and must never gate the
+// episode immediately — marking/saving the outgoing episode and writing the
+// player/state doc happen in the background and must never gate the
 // transition, or a slow connection would make "play next" feel stuck.
-function advance(autoplay: boolean): void {
+//
+// `markLeavingListened` is set by the "play next" button only: a deliberate
+// press means "done with this one." Everywhere else advance() is reached
+// automatically (an episode ending, an auto-cast starting), where the
+// outgoing episode should keep whatever status its saved position implies.
+function advance(autoplay: boolean, markLeavingListened = false): void {
   if (!uid) return;
 
   const leavingEpisode = currentEpisode.value;
   const leavingPodcastId = currentPodcastId.value;
   if (leavingEpisode && leavingPodcastId) {
-    saveProgress(uid, leavingPodcastId, leavingEpisode, Math.floor(positionSec.value)).catch(() => {});
+    if (markLeavingListened) {
+      markListened(uid, leavingPodcastId, leavingEpisode, Math.floor(positionSec.value)).catch(() => {});
+    } else {
+      saveProgress(uid, leavingPodcastId, leavingEpisode, Math.floor(positionSec.value)).catch(() => {});
+    }
   }
 
   const next = upcomingQueue.value[0];
@@ -447,12 +456,14 @@ export function togglePlay(): void {
   else play();
 }
 
-// Used by both the "play next" button and the queue's per-item skip — jumps
-// straight to the next queued episode. Whatever was playing keeps whatever
-// listened status its saved position already implies (skipping never forces
-// a status change).
+// The "play next" button (and the media session's next-track action): jumps
+// straight to the next queued episode and marks the outgoing one listened,
+// so pressing Next means it's done with rather than resurfacing in the
+// rotation later. An Undo toast covers a mis-press. This is deliberately
+// different from the queue panel's per-item Skip, which only reprioritises
+// this session and never writes a status (see `skipQueueItem`).
 export function playNext(): void {
-  advance(true);
+  advance(true, true);
 }
 
 export function skipForward30(): void {
