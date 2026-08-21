@@ -238,6 +238,51 @@ local-fallback vs. resume-vs-advance) by tracing all four cases against the
 signal-driven effect in `player.ts`; there's no real Cast device or a
 MacroDroid-driven launch reachable from this sandbox to test end-to-end.
 
+### Media Session / hardware media keys (`src/lib/mediaSession.ts`)
+
+**In practice `?autocast=1` never became reliable**, across several rounds of
+real-device testing: manual casting always worked, but the SDK's silent
+`ORIGIN_SCOPED` auto-rejoin essentially never fired on a page opened by an
+external launcher rather than by Chrome's own navigation. Rather than keep
+chasing it, the clicker path moved to a different mechanism entirely.
+
+The setup is a **dedicated Pixel 6a** — Jayne's own phone is an iPhone, which
+can't cast at all (see above), so a second always-on Android device by the
+speaker is the bridge either way. It stays plugged in with Jayne Air open and
+already cast-connected, and the Bluetooth clicker's button is remapped (via
+Button Mapper or similar) from Volume Up to **Play/Pause** rather than to
+"open a URL." Android routes hardware media keys to whichever app owns an
+active media session, so the press lands on the *already-open, already-
+connected* tab. That removes both failure modes at once: no fresh page load
+means no Cast SDK re-init and no auto-rejoin to lose, and a media-key press
+is a real user gesture so Chrome's autoplay policy isn't involved either.
+`?autocast=1` is kept as-is — it still works as a home-screen shortcut, and
+it's the fallback if the media-session route ever stops being registered.
+
+**The silent keeper is the load-bearing part.** Chrome only creates an
+Android media session while a page is genuinely playing audio, and drops it
+(taking the media keys with it) when nothing is. While casting, the local
+`<audio>` element is paused deliberately — so without intervention the
+clicker would go dead precisely when casting starts, which is the only state
+it's meant to be used in. `setSilentKeeperActive()` therefore loops a track
+of digital silence whenever the real element isn't playing
+(`castConnected.value || !isPlaying.value`). It's generated at runtime
+(10s of 8-bit 8kHz mono zero-fill, ~80KB, as a Blob URL) rather than shipped
+as a data URI, so it costs nothing in the bundle. 10s and not shorter
+because Chrome ignores very short clips for media-session purposes.
+
+`playbackState` has to be kept accurate because Play/Pause is a *toggle* key
+resolved against it — a stale value means one press appears to do nothing.
+`mediaSession.ts` is a passive sink (handlers and values pushed at the
+platform); `player.ts` owns the playback logic and drives it through one
+effect, so the two don't import each other in a cycle.
+
+Verified here: the generated WAV parses as a valid 10s mono silent file, and
+the wiring type-checks and builds. **Not verified end-to-end** — this
+sandbox has no Cast device, no Android device, and no way to send a hardware
+media key, so whether Chrome reliably registers the session while casting is
+the open question a real Pixel test has to answer.
+
 ## CORS
 
 RSS feeds don't set CORS headers for arbitrary origins, so feed XML has to

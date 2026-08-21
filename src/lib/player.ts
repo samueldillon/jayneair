@@ -17,6 +17,13 @@ import {
   loadCastSdk,
   setOnCastConnectionChange,
 } from './cast';
+import {
+  clearMediaSessionHandlers,
+  setMediaSessionHandlers,
+  setMediaSessionPlaybackState,
+  setSilentKeeperActive,
+  updateMediaSessionMetadata,
+} from './mediaSession';
 import type { Episode } from '../types';
 
 export const currentPodcastId = signal<string | null>(null);
@@ -54,6 +61,7 @@ let disposeCastMirrorEffect: (() => void) | null = null;
 let hydrated = false;
 let autoCastRequested = false;
 let disposeAutoCastEffect: (() => void) | null = null;
+let disposeMediaSessionEffect: (() => void) | null = null;
 
 function getAudio(): HTMLAudioElement {
   if (audioEl) return audioEl;
@@ -146,6 +154,37 @@ export function initPlayer(userId: string): () => void {
     durationSec.value = castDurationSec.value || currentEpisode.value?.durationSec || 0;
   });
 
+  // Hardware media keys (a Bluetooth clicker remapped to Play/Pause) reach
+  // the page through here — see mediaSession.ts for why this beats reloading
+  // the page with ?autocast=1 on every press.
+  setMediaSessionHandlers({
+    onPlay: play,
+    onPause: pause,
+    onNext: playNext,
+    onSkipForward: skipForward30,
+    onSeekTo: seekTo,
+  });
+
+  disposeMediaSessionEffect?.();
+  disposeMediaSessionEffect = effect(() => {
+    const episode = currentEpisode.value;
+    const podcast = currentPodcast.value;
+    updateMediaSessionMetadata(
+      episode
+        ? { title: episode.title, artist: podcast?.title ?? '', artworkUrl: podcast?.artworkUrl ?? '' }
+        : null,
+    );
+
+    // A media *toggle* key (which is what Play/Pause sends) is resolved
+    // against this, so it has to stay accurate or one press does nothing.
+    setMediaSessionPlaybackState(isPlaying.value ? 'playing' : episode ? 'paused' : 'none');
+
+    // Hold the session open whenever the real <audio> element isn't — while
+    // casting it's paused on purpose, and Chrome drops the media session
+    // (taking the media keys with it) if nothing is playing locally.
+    setSilentKeeperActive(castConnected.value || !isPlaying.value);
+  });
+
   loadCastSdk();
   setOnCastConnectionChange((connected) => {
     if (connected) {
@@ -194,6 +233,10 @@ export function initPlayer(userId: string): () => void {
     disposeCastMirrorEffect = null;
     disposeAutoCastEffect?.();
     disposeAutoCastEffect = null;
+    disposeMediaSessionEffect?.();
+    disposeMediaSessionEffect = null;
+    clearMediaSessionHandlers();
+    setSilentKeeperActive(false);
     autoCastRequested = false;
     autoCastPending.value = false;
   };
